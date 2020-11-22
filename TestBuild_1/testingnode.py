@@ -9,6 +9,9 @@ import json
 import subprocess
 import sys
 from os import path
+from os import listdir
+from web3 import Web3
+from web3 import geth
 
 class Node:
     #-----------------------------------------------------------------------
@@ -18,6 +21,7 @@ class Node:
         self.enode=enode
         self.myip=myip
         self.port=port
+        self.web3=''
 
         if guid:
             self.guid=guid
@@ -143,28 +147,32 @@ class Node:
 
     def addToNet(self,enode):
         #adding new node to the private net
-        print('added to Net')
+        self.web3.geth.admin.add_peer(enode)
+        print(self.web3.geth.admin.peers())
 
     def sendETH(self,puk):
+        nonce = self.web3.eth.getTransactionCount(self.publicKey)
         #send eth to this public key
-        print('sent eth')
+        tx = {
+            'nonce': nonce,
+            'to': puk,
+            'value': self.web3.toWei(1, 'ether'),
+            'gas': 200000,
+            'gasPrice': self.web3.toWei('50', 'gwei')
+        }        
+        prefixed = [filename for filename in listdir('./ETH/nodeG/keystore/') if filename.startswith("UTC")]
+        with open('./ETH/nodeG/keystore/{0}'.format(prefixed[0])) as keyfile:
+            encrypted_key = keyfile.read()
+            private_key = self.web3.eth.account.decrypt(encrypted_key, '123')
+
+        signed_tx = self.web3.eth.account.signTransaction(tx, private_key)
+        tx_hash = self.web3.eth.sendRawTransaction(signed_tx.rawTransaction)
+        print("Tx hash: ", self.web3.toHex(tx_hash))
+        print('Sent eth')
 
     def initBlockchainNode(self, genesisPK):
         subprocess.run('cls', shell=True)
         print("Test Environment Setup Script")
-
-        #Change dataPath
-        dataPath =  "C:/Stash-it/"
-        print("[Script Output] Default dataPath for the data directories is: {0}".format(dataPath))
-        changePath = input("[Script Output] Change default dataPath? (y/n): ")
-        if(changePath == 'y'):
-            dataPath = input("[Script Output] Enter a new dataPath: ")
-            print("[Script Output] New dataPath: {0}".format(dataPath))
-        elif(changePath != 'n'):
-            sys.exit("[Script Output] Invalid Input..")
-
-        subprocess.run('cls', shell=True)
-
         #Init or Run?
         print("1- Initialize node")
         print("2- Run node")
@@ -178,11 +186,11 @@ class Node:
         #If initialize node
         if(menuDo == '1'):
             #Detect data directory
-            if(path.exists("{0}".format(dataPath))):
+            if(path.exists("./ETH/")):
                 print("[Script Output] Detected data directory")
                 delete = input("[Script Output] Delete existing data directory? (y/n): ")
                 if(delete == 'y'):
-                    command = 'rmdir /q /s "{0}"'.format(dataPath)
+                    command = 'rmdir /q /s "./ETH/"'
                     res = subprocess.run(command, shell=True).returncode
                     if(res != 0):
                         sys.exit("[Script Output] Could not delete files.")
@@ -192,19 +200,19 @@ class Node:
             #Create Account
             print("[Script Output] Creating account...")
             print("[Script Output] Please save the public key.")
-            command = 'geth account new --datadir {0}node'.format(dataPath)
+            command = 'geth account new --datadir ./ETH/node'
             subprocess.run(command, shell=True)
 
             self.publicKey = input("[Script Output] Enter the public key generated: ")
 
             #Create genesis.json
             genesisJson = json.dumps({"config":{"chainId":15,"homesteadBlock":0,"eip150Block":0,"eip155Block":0,"eip158Block":0,"byzantiumBlock":0,"constantinopleBlock":0,"petersburgBlock":0,"clique":{"period":5,"epoch":30000}},"difficulty":"1","gasLimit":"8000000","extradata":"0x{0}{1}{2}".format(64 * '0', genesisPK[2:], 130 * '0'),"alloc":{"{0}".format(genesisPK[2:]):{"balance":"3000000000000000000000"}}}, indent=4)
-            with open("{0}genesis.json".format(dataPath),"w") as genesisFile :
+            with open("./ETH/genesis.json","w") as genesisFile :
                 genesisFile.write(genesisJson)
 
             #Initializing genesis node
             print("[Script Output] Initializing Node...")
-            command = 'geth init --datadir {0}node {0}genesis.json'.format(dataPath)
+            command = 'geth init --datadir ./ETH/node ./ETH/genesis.json'
             init = subprocess.run(command, shell=True).returncode
 
             #If initialization failed then abort
@@ -213,7 +221,7 @@ class Node:
 
         #Run genesis node
         print("[Script Output] Starting node...")
-        command = 'geth --datadir {0}node --networkid 15 --port 30305 --nat extip:{1} --nodiscover'.format(dataPath, self.myip)
+        command = 'geth --datadir ./ETH/node --networkid 15 --port 30305 --nat extip:{0} --nodiscover'.format(self.myip)
         threading.Thread(target=runNode, args=[command]).start()
 
         subprocess.run('cls', shell=True)
