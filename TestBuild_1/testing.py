@@ -58,7 +58,7 @@ if genesis == 'y':
         nodeGPK = input("[Script Output] Enter the public key generated: ")
 
         #Create genesis.json
-        genesisJson = json.dumps({"config":{"chainId":15,"homesteadBlock":0,"eip150Block":0,"eip155Block":0,"eip158Block":0,"byzantiumBlock":0,"constantinopleBlock":0,"petersburgBlock":0,"clique":{"period":5,"epoch":30000}},"difficulty":"1","gasLimit":"8000000","extradata":"0x{0}{1}{2}".format(64 * '0', nodeGPK[2:], 130 * '0'),"alloc":{"{0}".format(nodeGPK[2:]):{"balance":"3000000000000000000000"}}}, indent=4)
+        genesisJson = json.dumps({"config":{"chainId":15962383,"homesteadBlock":0,"eip150Block":0,"eip155Block":0,"eip158Block":0,"byzantiumBlock":0,"constantinopleBlock":0,"petersburgBlock":0,"clique":{"period":5,"epoch":30000}},"difficulty":"1","gasLimit":"8000000","extradata":"0x{0}{1}{2}".format(64 * '0', nodeGPK[2:], 130 * '0'),"alloc":{"{0}".format(nodeGPK[2:]):{"balance":"3000000000000000000000"}}}, indent=4)
         with open("./ETH/genesis.json","w") as genesisFile :
             genesisFile.write(genesisJson)
 
@@ -75,7 +75,7 @@ if genesis == 'y':
 
     #Run genesis node
     print("[Script Output] Starting genesis node... Please enter nodeG's password when terminal opens.")
-    command = 'geth --datadir ./ETH/nodeG --networkid 15 --port 30305 --nat extip:{0} --nodiscover --mine --unlock {1}'.format(ip ,nodeGPK)
+    command = 'geth --datadir ./ETH/nodeG --networkid 15962383 --port 30305 --nat extip:{0} --mine --unlock {1} --nodiscover'.format(ip ,nodeGPK)
     threading.Thread(target=runNode, args=[command]).start()
 
     #Initialize the P2P node 

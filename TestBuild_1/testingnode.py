@@ -12,6 +12,7 @@ from os import path
 from os import listdir
 from web3 import Web3
 from web3 import geth
+from web3.middleware import geth_poa_middleware
 
 class Node:
     #-----------------------------------------------------------------------
@@ -90,15 +91,22 @@ class Node:
 
         
     def adbn(self,peercon,data):
+        pk , enode, ttl = data.split('-')
         if self.genesis :
-            pk , enode = data.split('-')
-            self.addToNet(enode) 
+            #pk , enode, = data.split('-')
+            if int(ttl) == 1 :
+                self.addToNet(enode)
+                self.logging("added new peer to the blockchain network *") 
             self.sendETH(pk)
-            self.logging("added new peer to the blockchain network")
         else:
-            peer=min(self.peers.keys())
-            toforward=self.peers[peer]
-            self.connectAndSend(toforward[0],toforward[1],"adbn",data,pId=peer,waitReply=False)
+            if int(ttl) == 1 :
+                self.addToNet(enode)
+                ttl = 0
+                self.logging("added new peer to the blockchain network")
+            peer = min(self.peers.keys())
+            toforward = self.peers[peer]
+            ndata = '-'.join([pk,enode,str(ttl)])
+            self.connectAndSend(toforward[0],toforward[1],"adbn",ndata,pId=peer,waitReply=False)
             self.logging("Forwarding a {} request to peer id = {}".format("ADBN",peer))
             
         
@@ -206,7 +214,7 @@ class Node:
             self.publicKey = input("[Script Output] Enter the public key generated: ")
 
             #Create genesis.json
-            genesisJson = json.dumps({"config":{"chainId":15,"homesteadBlock":0,"eip150Block":0,"eip155Block":0,"eip158Block":0,"byzantiumBlock":0,"constantinopleBlock":0,"petersburgBlock":0,"clique":{"period":5,"epoch":30000}},"difficulty":"1","gasLimit":"8000000","extradata":"0x{0}{1}{2}".format(64 * '0', genesisPK[2:], 130 * '0'),"alloc":{"{0}".format(genesisPK[2:]):{"balance":"3000000000000000000000"}}}, indent=4)
+            genesisJson = json.dumps({"config":{"chainId":15962383,"homesteadBlock":0,"eip150Block":0,"eip155Block":0,"eip158Block":0,"byzantiumBlock":0,"constantinopleBlock":0,"petersburgBlock":0,"clique":{"period":5,"epoch":30000}},"difficulty":"1","gasLimit":"8000000","extradata":"0x{0}{1}{2}".format(64 * '0', genesisPK[2:], 130 * '0'),"alloc":{"{0}".format(genesisPK[2:]):{"balance":"3000000000000000000000"}}}, indent=4)
             with open("./ETH/genesis.json","w") as genesisFile :
                 genesisFile.write(genesisJson)
 
@@ -221,7 +229,7 @@ class Node:
 
         #Run genesis node
         print("[Script Output] Starting node...")
-        command = 'geth --datadir ./ETH/node --networkid 15 --port 30305 --nat extip:{0} --nodiscover'.format(self.myip)
+        command = 'geth --datadir ./ETH/node --networkid 15962383 --port 30305 --nat extip:{0} --nodiscover'.format(self.myip)
         threading.Thread(target=runNode, args=[command]).start()
 
         subprocess.run('cls', shell=True)
@@ -229,10 +237,15 @@ class Node:
         self.enode = input("[Script Output] Enode: ")
         self.logging("Inintialization of Node Completed :\nEnode : {}\nPublic Key : {} ".format(self.enode,self.publicKey))
 
+        #initialize web3
+        self.web3 = Web3(Web3.IPCProvider())
+        print("Connected to node: ", self.web3.isConnected())
+        self.web3.middleware_onion.inject(geth_poa_middleware, layer=0)
+
         #at the end send an add blockchain node to network (ADBN) request
-        peer=min(self.peers.keys())
+        peer=max(self.peers.keys())
         toforward=self.peers[peer]
-        tosend='-'.join([self.publicKey,self.enode])
+        tosend='-'.join([self.publicKey,self.enode,'1'])
         self.connectAndSend(toforward[0],toforward[1],"adbn",tosend,pId=peer,waitReply=False)
             
 
