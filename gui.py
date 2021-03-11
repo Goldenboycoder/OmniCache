@@ -52,6 +52,7 @@ class Ui_JoinNetwork(QMainWindow):
                                  "QPushButton#join_network_btn:hover{background-color: rgb(30,144,255);}"
                                  )
         MainWindow.setAnimated(True)
+
         self.centralwidget = QtWidgets.QWidget(MainWindow)
         self.centralwidget.setStyleSheet("")
         self.centralwidget.setObjectName("centralwidget")
@@ -143,7 +144,7 @@ class Ui_JoinNetwork(QMainWindow):
     # Renaming Labels, LineEdits, Buttons
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
-        MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow"))
+        MainWindow.setWindowTitle(_translate("MainWindow", "OmniCache"))
         self.ipaddress_label.setText(_translate("MainWindow", "IP Address:"))
         self.ipaddress_input.setPlaceholderText(_translate("MainWindow", "Enter IP..."))
         self.port_label.setText(_translate("MainWindow", "Port:"))
@@ -371,7 +372,7 @@ class Ui_homepage(QMainWindow):
     # Renaming Labels, LineEdits, Buttons
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
-        MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow"))
+        MainWindow.setWindowTitle(_translate("MainWindow", "OmniCache"))
         self.wallet_label.setText(_translate("MainWindow", "120"))
         self.hosting_value_label.setText(_translate("MainWindow", "10 GB"))
         self.mystash_label.setText(_translate("MainWindow", "My Stash"))
@@ -474,7 +475,7 @@ class Ui_settings(QMainWindow):
     # Renaming Labels, LineEdits, Buttons
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
-        MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow"))
+        MainWindow.setWindowTitle(_translate("MainWindow", "Settings"))
         self.label.setText(_translate("MainWindow", "Settings"))
         self.pushButton.setText(_translate("MainWindow", "Test 1"))
         self.pushButton_2.setText(_translate("MainWindow", "Test 2"))

@@ -41,6 +41,8 @@ class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
         Homepage_UI.show()
 
 OmniCacheApp = QApplication(sys.argv)   # Create Qt Application
+OmniCacheApp.setWindowIcon(QtGui.QIcon('./Images/taskbar_icon.png'))
+
 SplashscreenUI = Ui_splashscreen()      # Create an instance of Splashcreen UI
 Join_Network_UI = Ui_JoinNetwork()      # Create an instance of Join Network UI
 Homepage_UI = Ui_homepage()             # Create an instance of Homepage UI
