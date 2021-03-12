@@ -199,7 +199,7 @@ class Ui_file_item(QWidget):
 class Ui_homepage(QMainWindow):
 
     # Setup UI for the initial function
-    def __init__(self, parent=None):
+    def __init__(self, node,parent=None):
         super(Ui_homepage, self).__init__(parent)
         self.setupUi(self)
 
