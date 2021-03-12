@@ -8,12 +8,14 @@ import subprocess
 from PyQt5.QtCore import Qt
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtWidgets import QApplication, QWidget, QDialog, QMainWindow, QMessageBox, QLabel, QFileDialog, QDesktopWidget
+from PyQt5.QtWidgets import QDialog, QPushButton, QVBoxLayout, QApplication, QSplashScreen, QGraphicsColorizeEffect,QListWidgetItem
+import ntpath
 
 from p2p import Node
 from blockchain import bcNode
 import sys
 from PyQt5.QtGui import QPixmap
-from PyQt5.QtWidgets import QDialog, QPushButton, QVBoxLayout, QApplication, QSplashScreen, QGraphicsColorizeEffect
+
 from PyQt5.QtCore import QPoint, QTimer
 
 
@@ -150,6 +152,39 @@ class Ui_JoinNetwork(QMainWindow):
         self.port_label.setText(_translate("MainWindow", "Port:"))
         self.port_input.setPlaceholderText(_translate("MainWindow", "Enter Port..."))
         self.join_network_btn.setText(_translate("MainWindow", "Join Network"))
+
+class Ui_file_item(QWidget):
+
+    def __init__(self):
+      QWidget.__init__(self)
+      self.setupUi(self)
+
+    def setupUi(self, file_item):
+        file_item.setObjectName("file_item")
+        file_item.resize(232, 48)
+        self.horizontalLayout = QtWidgets.QHBoxLayout(file_item)
+        self.horizontalLayout.setObjectName("horizontalLayout")
+        self.label = QtWidgets.QLabel(file_item)
+        self.label.setObjectName("label")
+        self.label.setStyleSheet("font: 14pt \"Proxima Nova\";\n"
+                                  "color: rgb(255, 255, 255);")
+        self.horizontalLayout.addWidget(self.label, 0, QtCore.Qt.AlignLeft|QtCore.Qt.AlignVCenter)
+        self.download_btn = QtWidgets.QPushButton(file_item)
+        self.download_btn.setStyleSheet("border: 0")
+        self.download_btn.setText("")
+        icon = QtGui.QIcon()
+        icon.addPixmap(QtGui.QPixmap("./Images/download_button.png"), QtGui.QIcon.Normal, QtGui.QIcon.On)
+        self.download_btn.setIcon(icon)
+        self.download_btn.setObjectName("download_btn")
+        self.horizontalLayout.addWidget(self.download_btn, 0, QtCore.Qt.AlignLeft)
+
+        self.retranslateUi(file_item)
+        QtCore.QMetaObject.connectSlotsByName(file_item)
+
+    def retranslateUi(self, file_item):
+        _translate = QtCore.QCoreApplication.translate
+        file_item.setWindowTitle(_translate("file_item", "Form"))
+        self.label.setText(_translate("file_item", "Text Label"))
 
 
 #Homepage UI
@@ -328,9 +363,6 @@ class Ui_homepage(QMainWindow):
         self.retranslateUi(MainWindow)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
-        self.listWidget.setSpacing(10)   # Spacing between files in the listWidget
-
-
     # On-Click Settings Button
     def settings_onclick(self,ui,ui1):
         ui.show()   # Showing Settings UI
@@ -340,12 +372,24 @@ class Ui_homepage(QMainWindow):
     # On-Click Upload Button
     def upload_onclick(self):
         # To-do on clicking Upload Button
-
+        
         browseFile = QFileDialog()   # creating a File Dialog
         filename = browseFile.getOpenFileName(self,"Select File","",)  # receiving a string from the file dialog
 
-        print(filename[0])
+        # Extracting file name from filepath
+        ntpath.basename("a/b/c")
+        head, tail = ntpath.split(filename[0])
 
+        # Adding an item to the QListWidget
+        myQCustomQWidget = Ui_file_item()
+        myQCustomQWidget.label.setText(tail)
+        myQListWidgetItem = QListWidgetItem(self.listWidget)
+        myQListWidgetItem.setSizeHint(myQCustomQWidget.sizeHint())
+        self.listWidget.addItem(myQListWidgetItem)
+        self.listWidget.setItemWidget(myQListWidgetItem,myQCustomQWidget)
+
+        self.listWidget.setSpacing(10)   # Spacing between files in the listWidget
+        
 
     # Handling Close Window Button event in Homepage
     def closeEvent(self, event):
