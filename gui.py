@@ -15,9 +15,7 @@ from p2p import Node
 from blockchain import bcNode
 import sys
 from PyQt5.QtGui import QPixmap
-
 from PyQt5.QtCore import QPoint, QTimer
-
 
 # Splashscreen UI
 class Ui_splashscreen(QDialog):
@@ -167,7 +165,7 @@ class Ui_file_item(QWidget):
         self.label = QtWidgets.QLabel(file_item)
         self.label.setObjectName("label")
         self.label.setStyleSheet("font: 14pt \"Proxima Nova\";\n"
-                                  "color: rgb(255, 255, 255);")
+                                "color: rgb(255, 255, 255);")
         self.horizontalLayout.addWidget(self.label, 0, QtCore.Qt.AlignLeft|QtCore.Qt.AlignVCenter)
         self.download_btn = QtWidgets.QPushButton(file_item)
         self.download_btn.setStyleSheet("border: 0")
@@ -177,6 +175,16 @@ class Ui_file_item(QWidget):
         self.download_btn.setIcon(icon)
         self.download_btn.setObjectName("download_btn")
         self.horizontalLayout.addWidget(self.download_btn, 0, QtCore.Qt.AlignLeft)
+        self.pushButton = QtWidgets.QPushButton(file_item)
+        self.pushButton.setStyleSheet("border:0")
+        self.pushButton.setText("")
+        icon1 = QtGui.QIcon()
+        icon1.addPixmap(QtGui.QPixmap("./Images/trash_icon.png"), QtGui.QIcon.Normal, QtGui.QIcon.On)
+        self.pushButton.setIcon(icon1)
+        self.pushButton.setObjectName("pushButton")
+        self.horizontalLayout.addWidget(self.pushButton, 0, QtCore.Qt.AlignLeft|QtCore.Qt.AlignVCenter)
+        spacerItem = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        self.horizontalLayout.addItem(spacerItem)
 
         self.retranslateUi(file_item)
         QtCore.QMetaObject.connectSlotsByName(file_item)
@@ -360,6 +368,8 @@ class Ui_homepage(QMainWindow):
         self.menubar.setObjectName("menubar")
         MainWindow.setMenuBar(self.menubar)
 
+        
+
         self.retranslateUi(MainWindow)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
@@ -388,8 +398,6 @@ class Ui_homepage(QMainWindow):
         self.listWidget.addItem(myQListWidgetItem)
         self.listWidget.setItemWidget(myQListWidgetItem,myQCustomQWidget)
 
-        self.listWidget.setSpacing(10)   # Spacing between files in the listWidget
-        
 
     # Handling Close Window Button event in Homepage
     def closeEvent(self, event):

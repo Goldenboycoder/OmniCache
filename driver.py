@@ -59,9 +59,9 @@ Ui_splashscreen.flashSplash(SplashscreenUI)
 QTimer.singleShot(2000, lambda: Join_Network_UI.show())
 
 # Onclick Listeners
-Join_Network_UI.join_network_btn.clicked.connect(lambda: Join_Network_UI.join_network_btn_onclick(Homepage_UI))    # Triggering Join Network button and passing Homepage UI as param
-Homepage_UI.upload_btn.clicked.connect(lambda: Homepage_UI.upload_onclick())   # Triggering Upload File button in Homepage
-Homepage_UI.settings_btn.clicked.connect(lambda: Homepage_UI.settings_onclick(Settings_UI,Homepage_UI))   # Triggering Settings button and passing Settings UI & Homepage UI as param
-
+Join_Network_UI.join_network_btn.clicked.connect(lambda: Join_Network_UI.join_network_btn_onclick(Homepage_UI))   # Triggering Join Network button and passing Homepage UI as param
+Homepage_UI.upload_btn.clicked.connect(lambda: Homepage_UI.upload_onclick())                                      # Triggering Upload File button in Homepage
+Homepage_UI.settings_btn.clicked.connect(lambda: Homepage_UI.settings_onclick(Settings_UI,Homepage_UI))           # Triggering Settings button and passing Settings UI & Homepage UI as param
 
 OmniCacheApp.exec_() # Executing app
+
