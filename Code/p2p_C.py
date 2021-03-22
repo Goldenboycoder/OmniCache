@@ -3,10 +3,11 @@ import uuid
 import sys
 import threading
 import datetime
+import subprocess
 import time
 import json
 from pathlib import Path
-from blockchain import bcNode
+from blockchain_C import bcNode
 from os import listdir , walk
 from os.path import isfile, join , getsize , basename
 import hashlib
@@ -46,11 +47,11 @@ class Node:
             'RSCM':self.rscm,#RSCM code establish shared secret key with peer
             'PING':self.ping}#PING request to test connection and latency
         
-        if self.bNode.isGenesis:
+        """ if self.bNode.isGenesis:
             self.lastid=0
             self.guid=self.lastid
-        else:
-            print("normal peer")
+        else: """
+        print("normal peer")
 
         self.startTime = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         self.turnoff=False
@@ -65,7 +66,7 @@ class Node:
     
     def join(self,peercon,data): #JOIN code
         ip, port = data.split('-')
-        if self.bNode.isGenesis :
+        """ if self.bNode.isGenesis :
             #if this node is the genesis node send him eather and add him to table
             if not self.peerLimitReached():
                 if [ip,int(port)] not in self.peers.values():
@@ -100,31 +101,31 @@ class Node:
                     #self.bNode.addToNet(enode)
                     #self.bNode.sendETH(puk)
                     self.logging("Peer {} rejoined the Network".format(self.lastid))
-        else:
-            try:
-                peer=min(self.peers.keys())
-                toforward=self.peers[peer]
-                self.connectAndSend(toforward[0],toforward[1],"join",data,pId=peer,waitReply=False)
-                self.logging("Forwarding a {} request to peer id = {}".format("JOIN",peer))
-            except Exception as e:
-                print(e)
+        else: """
+        try:
+            peer=min(self.peers.keys())
+            toforward=self.peers[peer]
+            self.connectAndSend(toforward[0],toforward[1],"join",data,pId=peer,waitReply=False)
+            self.logging("Forwarding a {} request to peer id = {}".format("JOIN",peer))
+        except Exception as e:
+            print(e)
 
         
     def adbn(self,peercon,data):
         pk , enode= data.split('-')
-        if self.bNode.isGenesis :
+        """ if self.bNode.isGenesis :
             self.bNode.addToNet(enode)
             self.logging("added new peer to the blockchain network *") 
             self.bNode.sendETH(pk)
-        else:
-            self.bNode.addToNet(enode)
-            self.logging("added new peer to the blockchain network")
-            #if adbn was broadcasted comment out the code below
+        else: """
+        self.bNode.addToNet(enode)
+        self.logging("added new peer to the blockchain network")
+        #if adbn was broadcasted comment out the code below
 
-            """ peer = min(self.peers.keys())
-            toforward = self.peers[peer]
-            self.connectAndSend(toforward[0],toforward[1],"adbn",data,pId=peer,waitReply=False)
-            self.logging("Forwarding a {} request to peer id = {}".format("ADBN",peer)) """
+        """ peer = min(self.peers.keys())
+        toforward = self.peers[peer]
+        self.connectAndSend(toforward[0],toforward[1],"adbn",data,pId=peer,waitReply=False)
+        self.logging("Forwarding a {} request to peer id = {}".format("ADBN",peer)) """
 
     def ping(self,peercon,data):
         peercon.sendData('ping','pong')
@@ -368,6 +369,7 @@ class Node:
         fileHash = hashlib.sha1() #original file hash
         fileID = str(uuid.uuid4()).replace('-','') #generate unique random id
         chunkSize=self.chunkSize
+        order=0
         with open(filepath,'rb') as file:
             # loop till the end of the file
             cHashes=[]
@@ -418,6 +420,7 @@ class Node:
                             print(chunkID," ---ACK")
                             done = True 
                             chunk = file.read(chunkSize)
+                            order+=1
                         else:
                             print('failed to send chunk')
                             done =  False
@@ -465,6 +468,54 @@ class Node:
         except:
             print("{} could not be created".format(str(filename)))
 
+    #--------------------------------------------------------------------------
+    def run(self,command):
+    #--------------------------------------------------------------------------
+        """ 
+        Run command with no output and return returncode 
+        """
+        res = subprocess.run(command,stdout=subprocess.DEVNULL,stderr=subprocess.STDOUT).returncode
+        return res
+
+
+    #--------------------------------------------------------------------------
+    def setupFirewall(self,mainPort,gethPort):
+    #--------------------------------------------------------------------------
+        '''
+        Creates Firewall rules for the mainPort(tcp in and  out) and for the gethPort (tcp in and  out, udp in and  out)
+        '''
+        rules=[
+            'netsh advfirewall firewall show rule name= "A_test1" dir=in',
+            'netsh advfirewall firewall add rule name= "A_test1" dir=in action=allow protocol=TCP localport={}'.format(str(mainPort)),
+            'netsh advfirewall firewall show rule name= "A_test1" dir=out',
+            'netsh advfirewall firewall add rule name= "A_test1" dir=out action=allow protocol=TCP remoteport={}'.format(str(mainPort)),
+            'netsh advfirewall firewall show rule name= "A_test2T" dir=in',
+            'netsh advfirewall firewall add rule name= "A_test2T" dir=in action=allow protocol=TCP localport={}'.format(str(gethPort)),
+            'netsh advfirewall firewall show rule name= "A_test2T" dir=out',
+            'netsh advfirewall firewall add rule name= "A_test2T" dir=out action=allow protocol=TCP remoteport={}'.format(str(gethPort)),
+            'netsh advfirewall firewall show rule name= "A_test2U" dir=in',
+            'netsh advfirewall firewall add rule name= "A_test2U" dir=in action=allow protocol=UDP localport={}'.format(str(gethPort)),
+            'netsh advfirewall firewall show rule name= "A_test2U" dir=out',
+            'netsh advfirewall firewall add rule name= "A_test2U" dir=out action=allow protocol=UDP remoteport={}'.format(str(gethPort)),
+            ]
+        x=0
+        isRuleA=False
+        result=''
+        for rule in rules:
+            if not isRuleA:
+                result=self.run(rule)
+                isRuleA=False
+            else:
+                print("skipping")
+                isRuleA=False
+                continue
+            if result ==0:
+                if 'show' in rule:
+                    isRuleA=True
+                print('rule {} successfully applied'.format(x))   
+            else:
+                print('rule {} failed to apply'.format(x))
+            x+=1
 
     #--------------------------------------------------------------------------
     def route(self,rand=False):
@@ -640,6 +691,7 @@ class Node:
     #--------------------------------------------------------------------------------------
     def connectionSpawner(self):
     #--------------------------------------------------------------------------------------
+        self.setupFirewall(self.port,30305)
         self.setup()
         inbound=self.createServerSocket()
         #inbound.settimeout(70)# this line could be deleted to avoid possible problems 
