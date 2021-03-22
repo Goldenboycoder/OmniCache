@@ -11,8 +11,8 @@ from PyQt5.QtWidgets import QApplication, QWidget, QDialog, QMainWindow, QMessag
 from PyQt5.QtWidgets import QDialog, QPushButton, QVBoxLayout, QApplication, QSplashScreen, QGraphicsColorizeEffect,QListWidgetItem
 import ntpath
 
-from p2p import Node
-from blockchain import bcNode
+from p2p_C import Node
+from blockchain_C import bcNode
 import sys
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import QPoint, QTimer
@@ -52,7 +52,6 @@ class Ui_JoinNetwork(QMainWindow):
                                  "QPushButton#join_network_btn:hover{background-color: rgb(30,144,255);}"
                                  )
         MainWindow.setAnimated(True)
-
         self.centralwidget = QtWidgets.QWidget(MainWindow)
         self.centralwidget.setStyleSheet("")
         self.centralwidget.setObjectName("centralwidget")
@@ -65,7 +64,7 @@ class Ui_JoinNetwork(QMainWindow):
         self.logo_label.setText("")
         self.logo_label.setPixmap(QtGui.QPixmap("./Images/joinnetwork_logo.png"))
         self.logo_label.setObjectName("logo_label")
-        self.verticalLayout_4.addWidget(self.logo_label, 0, QtCore.Qt.AlignHCenter | QtCore.Qt.AlignVCenter)
+        self.verticalLayout_4.addWidget(self.logo_label, 0, QtCore.Qt.AlignHCenter|QtCore.Qt.AlignVCenter)
         self.horizontalLayout_1 = QtWidgets.QHBoxLayout()
         self.horizontalLayout_1.setSizeConstraint(QtWidgets.QLayout.SetDefaultConstraint)
         self.horizontalLayout_1.setSpacing(6)
@@ -74,50 +73,36 @@ class Ui_JoinNetwork(QMainWindow):
         self.ipaddress_label.setStyleSheet("font: 14pt \"Proxima Nova\";\n"
                                            "color: rgb(255, 255, 255);")
         self.ipaddress_label.setObjectName("ipaddress_label")
-        self.horizontalLayout_1.addWidget(self.ipaddress_label, 0, QtCore.Qt.AlignRight | QtCore.Qt.AlignBottom)
+        self.horizontalLayout_1.addWidget(self.ipaddress_label, 0, QtCore.Qt.AlignRight|QtCore.Qt.AlignBottom)
         self.ipaddress_input = QtWidgets.QLineEdit(self.centralwidget)
         self.ipaddress_input.setStyleSheet("font: 10pt \"Proxima Nova\";\n"
                                            "color: rgb(255, 255, 255);\n"
                                            "border: 0.5px solid grey;\n"
                                            "border-radius: 6px;\n"
-                                           "")
+                                           )
         self.ipaddress_input.setText("")
         self.ipaddress_input.setObjectName("ipaddress_input")
-        self.horizontalLayout_1.addWidget(self.ipaddress_input, 0, QtCore.Qt.AlignLeft | QtCore.Qt.AlignBottom)
+        self.horizontalLayout_1.addWidget(self.ipaddress_input, 0, QtCore.Qt.AlignLeft|QtCore.Qt.AlignBottom)
         self.verticalLayout_4.addLayout(self.horizontalLayout_1)
         self.horizontalLayout_25 = QtWidgets.QHBoxLayout()
         self.horizontalLayout_25.setObjectName("horizontalLayout_25")
-        self.port_label = QtWidgets.QLabel(self.centralwidget)
-        self.port_label.setStyleSheet("font: 14pt \"Proxima Nova\";\n"
-                                          "color: rgb(255, 255, 255);")
-        self.port_label.setObjectName("port_label")
-        self.horizontalLayout_25.addWidget(self.port_label, 0, QtCore.Qt.AlignRight | QtCore.Qt.AlignTop)
-        self.port_input = QtWidgets.QLineEdit(self.centralwidget)
-        self.port_input.setStyleSheet("font: 10pt \"Proxima Nova\";\n"
-                                          "color: rgb(255, 255, 255);\n"
-                                          "border: 0.5px solid grey;\n"
-                                          "border-radius: 6px;\n"
-                                          "")
-        self.port_input.setText("")
-        self.port_input.setObjectName("port_input")
-        self.horizontalLayout_25.addWidget(self.port_input, 0, QtCore.Qt.AlignLeft | QtCore.Qt.AlignTop)
+        spacerItem1 = QtWidgets.QSpacerItem(20, 60, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
+        self.horizontalLayout_25.addItem(spacerItem1)
         self.verticalLayout_4.addLayout(self.horizontalLayout_25)
         self.join_network_btn = QtWidgets.QPushButton(self.centralwidget)
         self.join_network_btn.setStyleSheet("font: 10pt \"Proxima Nova\";\n"
-                                                "color: rgb(255, 255, 255);\n"
-                                                "border-radius: 6px;\n"
-                                                "padding: 7px"
-                                                )
+                                            "background-color: rgb(0, 168, 243);\n"
+                                            "color: rgb(255, 255, 255);\n"
+                                            "border-radius: 6px;\n"
+                                            "padding: 10px")
         self.join_network_btn.setObjectName("join_network_btn")
-        self.verticalLayout_4.addWidget(self.join_network_btn, 0, QtCore.Qt.AlignHCenter | QtCore.Qt.AlignTop)
-        spacerItem1 = QtWidgets.QSpacerItem(20, 200, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
-        self.verticalLayout_4.addItem(spacerItem1)
+        self.verticalLayout_4.addWidget(self.join_network_btn, 0, QtCore.Qt.AlignHCenter|QtCore.Qt.AlignTop)
+        spacerItem2 = QtWidgets.QSpacerItem(20, 200, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
+        self.verticalLayout_4.addItem(spacerItem2)
         MainWindow.setCentralWidget(self.centralwidget)
 
         self.retranslateUi(MainWindow)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
-
-        effect = QGraphicsColorizeEffect()
 
 
     # On Click Join Network Button and passing UI in args
@@ -144,12 +129,11 @@ class Ui_JoinNetwork(QMainWindow):
     # Renaming Labels, LineEdits, Buttons
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
-        MainWindow.setWindowTitle(_translate("MainWindow", "OmniCache"))
+        MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow"))
         self.ipaddress_label.setText(_translate("MainWindow", "IP Address:"))
         self.ipaddress_input.setPlaceholderText(_translate("MainWindow", "Enter IP..."))
-        self.port_label.setText(_translate("MainWindow", "Port:"))
-        self.port_input.setPlaceholderText(_translate("MainWindow", "Enter Port..."))
         self.join_network_btn.setText(_translate("MainWindow", "Join Network"))
+
 
 class Ui_file_item(QWidget):
 
@@ -202,6 +186,7 @@ class Ui_homepage(QMainWindow):
     def __init__(self, node,parent=None):
         super(Ui_homepage, self).__init__(parent)
         self.setupUi(self)
+        node.setup()
 
     # UI Design
     def setupUi(self, MainWindow):
@@ -297,6 +282,7 @@ class Ui_homepage(QMainWindow):
         self.listWidget = QtWidgets.QListWidget(self.centralwidget)
         self.listWidget.setObjectName("listWidget")
         self.verticalLayout.addWidget(self.listWidget)
+        self.listWidget.verticalScrollBar().setStyleSheet("QScrollBar:vertical{background:#000000;}")
         self.filedetails_label = QtWidgets.QLabel(self.centralwidget)
         self.filedetails_label.setStyleSheet("font: 14pt \"Proxima Nova\";\n"
                                              "color: rgb(255, 255, 255);")
@@ -311,8 +297,11 @@ class Ui_homepage(QMainWindow):
         self.progress_label.setObjectName("progress_label")
         self.horizontalLayout_8.addWidget(self.progress_label)
         self.progress_bar = QtWidgets.QProgressBar(self.centralwidget)
-        self.progress_bar.setStyleSheet("font: 10pt \"Proxima Nova\";\n"
-                                        "color: rgb(255, 255, 255);")
+        self.progress_bar.setStyleSheet(
+                                        "font: 10pt \"Proxima Nova\";\n"
+                                        "color: rgb(255, 255, 255);"          
+                                        )
+
         self.progress_bar.setProperty("value", 35)
         self.progress_bar.setOrientation(QtCore.Qt.Horizontal)
         self.progress_bar.setObjectName("progress_bar")
@@ -368,10 +357,29 @@ class Ui_homepage(QMainWindow):
         self.menubar.setObjectName("menubar")
         MainWindow.setMenuBar(self.menubar)
 
-        
-
         self.retranslateUi(MainWindow)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
+
+    # Search query for listview
+    def on_searchTextChanged(self, search_query):
+        for row in range(self.listWidget.count()):
+            item = self.listWidget.item(row)
+            widget = self.listWidget.itemWidget(item)
+
+            if search_query:
+                item.setHidden(not self.filter(search_query, widget.label.text()))
+            else:
+                item.setHidden(True)
+
+        if self.search_input.text() == "":
+            for row in range(self.listWidget.count()):
+                item = self.listWidget.item(row)
+                item.setHidden(False)
+
+
+    def filter(self, text, keywords):
+        
+        return text in keywords
 
     # On-Click Settings Button
     def settings_onclick(self,ui,ui1):
@@ -383,20 +391,25 @@ class Ui_homepage(QMainWindow):
     def upload_onclick(self):
         # To-do on clicking Upload Button
         
+        filename = ""
         browseFile = QFileDialog()   # creating a File Dialog
-        filename = browseFile.getOpenFileName(self,"Select File","",)  # receiving a string from the file dialog
+        filename = browseFile.getOpenFileName(self,"Select File","",)   # receiving a string from the file dialog
 
         # Extracting file name from filepath
         ntpath.basename("a/b/c")
         head, tail = ntpath.split(filename[0])
 
-        # Adding an item to the QListWidget
-        myQCustomQWidget = Ui_file_item()
-        myQCustomQWidget.label.setText(tail)
-        myQListWidgetItem = QListWidgetItem(self.listWidget)
-        myQListWidgetItem.setSizeHint(myQCustomQWidget.sizeHint())
-        self.listWidget.addItem(myQListWidgetItem)
-        self.listWidget.setItemWidget(myQListWidgetItem,myQCustomQWidget)
+        # If filedialog open is clicked
+        if filename[0] != "":
+            # Adding an item to the QListWidget
+            myQCustomQWidget = Ui_file_item()
+            myQCustomQWidget.label.setText(tail)
+            myQListWidgetItem = QListWidgetItem(self.listWidget)
+            myQListWidgetItem.setSizeHint(myQCustomQWidget.sizeHint())
+            self.listWidget.addItem(myQListWidgetItem)
+            self.listWidget.setItemWidget(myQListWidgetItem,myQCustomQWidget)
+        
+        
 
 
     # Handling Close Window Button event in Homepage

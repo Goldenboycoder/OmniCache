@@ -3,8 +3,9 @@ from PyQt5.QtWidgets import QApplication, QWidget, QDialog, QMainWindow, QMessag
 import sys
 from PyQt5.QtCore import QTimer
 import threading
-from p2p import Node
-from blockchain import bcNode
+from p2p_C import Node
+from blockchain_C import bcNode
+import subprocess
 
 from gui import Ui_JoinNetwork, Ui_homepage,Ui_splashscreen, Ui_settings
 
@@ -48,7 +49,7 @@ class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
 OmniCacheApp = QApplication(sys.argv)   # Create Qt Application
 OmniCacheApp.setWindowIcon(QtGui.QIcon('./Images/taskbar_icon.png'))
 
-SplashscreenUI = Ui_splashscreen()      # Create an instance of Splashcreen UI
+SplashscreenUI = Ui_splashscreen()      # Create an instance of Splash screen UI
 Join_Network_UI = Ui_JoinNetwork()      # Create an instance of Join Network UI          
 Homepage_UI=""                          # Create an instance of Homepage UI
 Settings_UI = Ui_settings()             # Create an instance of Settings UI
@@ -66,16 +67,17 @@ QTimer.singleShot(2000, lambda: Join_Network_UI.show())
 # Getting ip and port from Join Network input fields and creating a P2P Node
 def initNode():
     ip=Join_Network_UI.ipaddress_input.text()
-    port=Join_Network_UI.port_input.text()
+    port="4444"
     bNode = bcNode("127.0.0.1")
     node= Node(ip,port,bNode)
     Homepage_UI = Ui_homepage(node)
-    Homepage_UI.upload_btn.clicked.connect(lambda: Homepage_UI.upload_onclick())                                      # Triggering Upload File button in Homepage
-    Homepage_UI.settings_btn.clicked.connect(lambda: Homepage_UI.settings_onclick(Settings_UI,Homepage_UI))           # Triggering Settings button and passing Settings UI & Homepage UI as param
+    Homepage_UI.upload_btn.clicked.connect(lambda: Homepage_UI.upload_onclick())                             # Triggering Upload File button in Homepage
+    Homepage_UI.settings_btn.clicked.connect(lambda: Homepage_UI.settings_onclick(Settings_UI,Homepage_UI))  # Triggering Settings button and passing Settings UI & Homepage UI as param
+    Homepage_UI.search_input.textChanged.connect(lambda: Homepage_UI.on_searchTextChanged(Homepage_UI.search_input.text()))
     tray_icon.Homepage_UI=Homepage_UI
     return Homepage_UI
 
 # Onclick Listeners
-Join_Network_UI.join_network_btn.clicked.connect(lambda: Join_Network_UI.join_network_btn_onclick(initNode()))        # Triggering Settings button and passing Settings UI & Homepage UI as param
+Join_Network_UI.join_network_btn.clicked.connect(lambda: Join_Network_UI.join_network_btn_onclick(initNode()))   # Triggering Settings button and passing Settings UI & Homepage UI as param
 
 OmniCacheApp.exec_() # Executing app
