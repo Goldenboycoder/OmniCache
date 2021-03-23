@@ -62,7 +62,7 @@ tray_icon = SystemTrayIcon(QtGui.QIcon("./Images/currency_logo.png"), Homepage_U
 Ui_splashscreen.flashSplash(SplashscreenUI)
 
 # Showing Join Network UI after 3s until splash screen is done
-QTimer.singleShot(2000, lambda: Join_Network_UI.show())
+QTimer.singleShot(2000, lambda: Join_Network_UI.showMaximized())
 
 # Onclick Listeners
 Join_Network_UI.join_network_btn.clicked.connect(lambda: Join_Network_UI.join_network_btn_onclick(initNode()))   # Triggering Join network button
@@ -73,13 +73,19 @@ def initNode():
 
     global Homepage_UI
 
-    ip=Join_Network_UI.ipaddress_input.text()
-    port="4444"
-    bNode = bcNode("127.0.0.1")
-    node= Node(ip,port,bNode)
-    Homepage_UI = Ui_homepage(node)
+    ip = Join_Network_UI.ipaddress_input.text()
+    port = 4444
+    bNode = bcNode("172.29.133.188")    #Initializing Bc Node
+    node= Node("172.29.133.188",port,bNode, npeer=10)   #Initializing P2P Node
+    tosend='-'.join(["172.29.133.188",str(port)])
+    thread=threading.Thread(target = node.connectionSpawner, args = [], daemon = True)
+    thread.start()
+    node.connectAndSend(ip, port,'join', tosend, waitReply=False)
+
+    Homepage_UI = Ui_homepage(node)    #Creating Homepage UI with node as arg
     tray_icon.show()
     HomepageListeners()
+
     return Homepage_UI
 
 
@@ -88,8 +94,8 @@ def HomepageListeners():
     global Homepage_UI
 
     Homepage_UI.upload_btn.clicked.connect(lambda: Homepage_UI.upload_onclick())                             # Triggering Upload File button in Homepage
-    Homepage_UI.settings_btn.clicked.connect(lambda: Homepage_UI.settings_onclick(Settings_UI,Homepage_UI))  # Triggering Settings button and passing Settings UI & Homepage UI as param
-    Homepage_UI.search_input.textChanged.connect(lambda: Homepage_UI.on_searchTextChanged(Homepage_UI.search_input.text()))  # On text changed in search input
+    Homepage_UI.settings_btn.clicked.connect(lambda: Homepage_UI.settings_onclick(Settings_UI,Homepage_UI))  # Triggering Settings button and passing Settings UI & Homepage UI as arg
+    Homepage_UI.search_input.textChanged.connect(lambda: Homepage_UI.on_searchTextChanged(Homepage_UI.search_input.text()))   # On text changed in search input
     tray_icon.Homepage_UI = Homepage_UI
 
 OmniCacheApp.exec_() # Executing app

@@ -82,6 +82,12 @@ class Ui_JoinNetwork(QMainWindow):
                                            )
         self.ipaddress_input.setText("")
         self.ipaddress_input.setObjectName("ipaddress_input")
+
+        #IP regex Validator
+        IpAddressRegex = QtCore.QRegExp("^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$")
+        IPvalidator = QtGui.QRegExpValidator(IpAddressRegex)
+        self.ipaddress_input.setValidator(IPvalidator)
+
         self.horizontalLayout_1.addWidget(self.ipaddress_input, 0, QtCore.Qt.AlignLeft|QtCore.Qt.AlignBottom)
         self.verticalLayout_4.addLayout(self.horizontalLayout_1)
         self.horizontalLayout_25 = QtWidgets.QHBoxLayout()
@@ -108,7 +114,7 @@ class Ui_JoinNetwork(QMainWindow):
     # On Click Join Network Button and passing UI in args
     def join_network_btn_onclick(self, ui):
         # To-do on clicking Join Network Button
-        ui.show()
+        ui.showMaximized()
         self.hide()
 
     # Handling Close Window Button event
@@ -186,7 +192,6 @@ class Ui_homepage(QMainWindow):
     def __init__(self, node,parent=None):
         super(Ui_homepage, self).__init__(parent)
         self.setupUi(self)
-        node.setup()
 
     # UI Design
     def setupUi(self, MainWindow):
