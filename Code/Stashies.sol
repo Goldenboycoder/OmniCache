@@ -10,10 +10,11 @@ contract Bank {
     address public owner;   //Owner of the smart contract
     uint256 totalSupply_;   //Total supply of Omnies
     
+    
     // Events
-    event logFile(address indexed accountAddress, string linkToOGF, string fileName, string fileHash, int totalSize);
-    event logChunk(address indexed accountAddress, string indexed linkToOGF, string senderGUID, string receiverGUID, string chunkHash, int chunkNb);
-    event logDeletion(address indexed accountAddress, string indexed linkToOGF);
+    event logFile(address indexed accountAddress, int linkToOGF, string fileName, string fileHash, int totalSize);
+    event logChunk(address indexed accountAddress, int indexed linkToOGF, int senderGUID, int indexed receiverGUID, string chunkHash, int chunkNb);
+    event logDeletion(address indexed accountAddress, int indexed linkToOGF);
     
     // @notice Create the bank with an initial amount of stashies
     constructor(uint256 total) public {
@@ -51,18 +52,18 @@ contract Bank {
     
     
     /// @notice Log file upload and deduct Omnies
-    function uploadFile(string memory linkToOGF, string memory fileName, string memory fileHash, int totalSize) public {
+    function uploadFile(int linkToOGF, string memory fileName, string memory fileHash, int totalSize) public {
         emit logFile(msg.sender, linkToOGF, fileName, fileHash, totalSize);
         balances[msg.sender] = balances[msg.sender].sub(50);
     }
     
     /// @notice Log Chunk upload
-    function uploadChunk(string memory linkToOGF, string memory senderGUID, string memory receiverGUID, string memory chunkHash, int chunkNb) public {
+    function uploadChunk(int linkToOGF, int senderGUID, int receiverGUID, string memory chunkHash, int chunkNb) public {
         emit logChunk(msg.sender, linkToOGF, senderGUID, receiverGUID, chunkHash, chunkNb);
     }
     
     /// @notice Log file deletion
-    function deleteFile(string memory linkToOGF) public {
+    function deleteFile(int linkToOGF) public {
         emit logDeletion(msg.sender, linkToOGF);
     }
 }
