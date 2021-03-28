@@ -46,9 +46,9 @@ class bcNode:
                 command = 'rmdir /q /s "./ETH/"'
                 res = subprocess.run(command, shell=True).returncode
                 if(res != 0):
-                    sys.exit("[Script Output] Could not delete files.")
+                	sys.exit("[Script Output] Could not delete files.")
                 else:
-                    print("[Script Output] Data directory deleted")
+                	print("[Script Output] Data directory deleted")
 
             #Create new account
             print("[Script Output] Creating account...")
@@ -92,7 +92,7 @@ class bcNode:
 
         #Run Node
         print("[Script Output] Starting node...")
-        command = 'geth --datadir ./ETH/node --networkid 15 --cache=2048 --port 30305 --nat extip:{0} --nodiscover'.format(self.ip)
+        command = 'geth --datadir ./ETH/node --syncmode=full --networkid 15 --cache=2048 --port 30305 --nat extip:{0} --nodiscover'.format(self.ip)
 
         threading.Thread(target=runNode, args=[command]).start()
 
@@ -131,21 +131,28 @@ class bcNode:
     def addToNet(self,enode):
     #-----------------------------------------------------------------------
         #Add node as peer
-        self.web3.geth.admin.add_peer(enode)
+        while(not self.web3.geth.admin.add_peer(enode)):
+        	print("Failed adding peer. Retrying..")
+
         print("[Script Output] Adding node as blockchain peer...")
     
     #-----------------------------------------------------------------------
     def enroll(self):
     #-----------------------------------------------------------------------
-        try:
-            tx_hash = self.contract.functions.enroll().transact()
-            tx_receipt = self.web3.eth.waitForTransactionReceipt(tx_hash)
+    	try:
+    		tx_hash = self.contract.functions.enroll().transact()
+        	tx_receipt = self.web3.eth.waitForTransactionReceipt(tx_hash)
 
-            #Print balance
-            print("Omnies Balance: ", self.contract.functions.myBalance().call())
+        	#Check status of enroll transaction
+        	if(tx_receipt['status'] == 1):
+	    		print("Omnies Balance: ", self.contract.functions.myBalance().call())
+	    	else:
+	            print("Error receiving Omnies. Retrying..")
+	            self.enroll()
 
-        except:
-            print("Error Occured.")
+	    except:
+        	print("Error enrolling! Retrying.. If this persists, restart.")
+
 
     #-----------------------------------------------------------------------
     def logFileUpload(self, linkToOGF, fileName, fileHash, totalSize):
