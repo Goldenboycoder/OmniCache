@@ -199,10 +199,10 @@ class Node:
         
         time.sleep(20)
         self.bNode.enroll()
-        time.sleep(3)
+        """ time.sleep(3)
         if len(self.peers)>1:
             time.sleep(1)
-            self.test()
+            self.test() """
 
     #========================================================================================
     
@@ -664,18 +664,18 @@ class Node:
         #-------------------------
         print("file uploaded")
         self.bNode.logFileUpload(fileID,basename(filepath),fileHash,(order)*self.chunkSize)
-        time.sleep(5)
+        #time.sleep(5)
         #myfile=self.bNode.filterByAddress()
-        myfiles = self.fetchMyFiles()
+        #myfiles = self.fetchMyFiles()
         #time.sleep(5)
         #self.bNode.logDeletion(fileID)
-        time.sleep(10)
+        #time.sleep(10)
         #self.bNode.filterByAddress()
-        self.downloadFile(myfiles[0]['fileName'],myfiles[0]['linkToOGF'])
+        #self.downloadFile(myfiles[0]['fileName'],myfiles[0]['linkToOGF'])
         #-------------------------
         self.myItems[basename(filepath)]={fileHash : cHashes}
 
-        return [basename(filepath),fileHash]
+        return [basename(filepath),fileID]
 
 
 
@@ -769,7 +769,7 @@ class Node:
             peers = list(self.peers.keys())
             while True:
                 test = random.randint(1,len(peers)-1)
-                if (test != 0 and self.testCon(peers[test])[0]):
+                if (peers[test] != self.guid and self.testCon(peers[test])[0]):
                     return test
                 else:
                     self.logging('** GUID : {} is offline'.format(test))

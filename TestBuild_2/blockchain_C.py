@@ -131,7 +131,9 @@ class bcNode:
     def addToNet(self,enode):
     #-----------------------------------------------------------------------
         #Add node as peer
-        self.web3.geth.admin.add_peer(enode)
+        while(not self.web3.geth.admin.add_peer(enode)):
+        	print("Failed adding peer. Retrying..")
+
         print("[Script Output] Adding node as blockchain peer...")
     
     #-----------------------------------------------------------------------
@@ -140,12 +142,15 @@ class bcNode:
         try:
             tx_hash = self.contract.functions.enroll().transact()
             tx_receipt = self.web3.eth.waitForTransactionReceipt(tx_hash)
-
-            #Print balance
-            print("Omnies Balance: ", self.contract.functions.myBalance().call())
-
+            #Check status of enroll transaction
+            if(tx_receipt['status'] == 1):
+                print("Omnies Balance: ", self.contract.functions.myBalance().call())
+            else:
+                print("Error receiving Omnies. Retrying..")
+                self.enroll()
         except:
-            print("Error Occured.")
+            print("Error enrolling! Retrying.. If this persists, restart.")
+
 
     #-----------------------------------------------------------------------
     def logFileUpload(self, linkToOGF, fileName, fileHash, totalSize):
