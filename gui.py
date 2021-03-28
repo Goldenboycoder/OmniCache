@@ -5,7 +5,7 @@ from pathlib import Path
 import time
 import subprocess
 
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QObject, QThread, pyqtSignal
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtWidgets import QApplication, QWidget, QDialog, QMainWindow, QMessageBox, QLabel, QFileDialog, QDesktopWidget
 from PyQt5.QtWidgets import QDialog, QPushButton, QVBoxLayout, QApplication, QSplashScreen, QGraphicsColorizeEffect,QListWidgetItem
@@ -185,6 +185,23 @@ class Ui_file_item(QWidget):
         self.label.setText(_translate("file_item", "Text Label"))
 
 
+#Upload Task
+class UploadTask(QtCore.QThread):
+
+    #Task thread finished event
+    finished = pyqtSignal(object)
+
+    def __init__(self, node, filepath):
+        QtCore.QThread.__init__(self)
+        self.node = node
+        self.filepath = filepath
+
+    #When task thread starts
+    def run(self):
+        filename , _ = self.node.sendChunks(self.filepath)
+        self.finished.emit(filename)
+
+
 #Homepage UI
 class Ui_homepage(QMainWindow):
 
@@ -192,6 +209,9 @@ class Ui_homepage(QMainWindow):
     def __init__(self, node,parent=None):
         super(Ui_homepage, self).__init__(parent)
         self.setupUi(self)
+        self.threads = []
+        self.node = node
+
 
     # UI Design
     def setupUi(self, MainWindow):
@@ -392,6 +412,7 @@ class Ui_homepage(QMainWindow):
         ui1.setWindowOpacity(0.9)   # Homepage UI on 0.9 opacity in the background
 
 
+
     # On-Click Upload Button
     def upload_onclick(self):
         # To-do on clicking Upload Button
@@ -402,20 +423,29 @@ class Ui_homepage(QMainWindow):
 
         # Extracting file name from filepath
         ntpath.basename("a/b/c")
-        head, tail = ntpath.split(filename[0])
+        
+        uploadtask = UploadTask(self.node, Path(filename[0])) #Creating a thread
+        uploadtask.finished.connect(self.addItemtoList) #After thread is finished
+        self.threads.append(uploadtask)
+        uploadtask.start()
 
+        """ if filename != "":
+            thread = threading.Thread(target= self.node.sendChunks, args=[Path(filename[0]),])
+            thread.start() """
+        
+        
+    def addItemtoList(self, filename):
+        
+        #head, tail = ntpath.split(filename[0])
         # If filedialog open is clicked
-        if filename[0] != "":
+        if filename != "":
             # Adding an item to the QListWidget
             myQCustomQWidget = Ui_file_item()
-            myQCustomQWidget.label.setText(tail)
+            myQCustomQWidget.label.setText(filename)
             myQListWidgetItem = QListWidgetItem(self.listWidget)
             myQListWidgetItem.setSizeHint(myQCustomQWidget.sizeHint())
             self.listWidget.addItem(myQListWidgetItem)
             self.listWidget.setItemWidget(myQListWidgetItem,myQCustomQWidget)
-        
-        
-
 
     # Handling Close Window Button event in Homepage
     def closeEvent(self, event):

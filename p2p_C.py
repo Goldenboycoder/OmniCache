@@ -45,7 +45,8 @@ class Node:
             'DEFS':self.defs,#DEFS code define self after getting id and table from genesis
             'ADBN':self.adbn,#ADBN code add blockchain node after gettting it's PK and Enode
             'RSCM':self.rscm,#RSCM code establish shared secret key with peer
-            'PING':self.ping}#PING request to test connection and latency
+            'PING':self.ping,#PING request to test connection and latency
+            'DWFL':self.dwfl}#DWFL request to download file
         
         """ if self.bNode.isGenesis:
             self.lastid=0
@@ -60,6 +61,7 @@ class Node:
         self.chunkSize=3704 #multiple of 13 and less then 4096
         self.fileQueue={}
         self.myItems={}
+        self.replicationFactor=1
 
     #================================Protocols===============================================
     
@@ -148,6 +150,14 @@ class Node:
             peercon.sendData('ackf',tosend)
             self.logging("* Receive file failed : {}")
         
+    def dwfl(self,peercon,data):
+        chunkHash = data
+        filename = self.getFile(chunkHash)
+        if filename:
+            self.sendFile(peercon,filename)
+        else:
+            peercon.sendData('akfl','0')
+
 
 
     def akfl(self,peercon,data): # Acknowledge file code
@@ -298,11 +308,69 @@ class Node:
     
     #==========================================Files=========================================
     
+    
     #--------------------------------------------------------------------------------------
-    def saveChunk(self,chunk,chunkHash):
+    def fetchMyFiles(self):
+    #--------------------------------------------------------------------------------------
+        '''
+        Return clients files in a dict with linkToOGF as key
+        {
+            linkToOGF:{
+                    linkToOGF
+                    fileName
+                    fileHash
+                    totalSize
+            },
+        }
+        '''
+        try:
+            myFiles= self.bNode.filterByAddress()
+            return myFiles
+        except Exception as e:
+            self.logging('* Failed to retraive files from blockchain')
+            print(e)
+            return None
+        
+
+    #--------------------------------------------------------------------------------------
+    def fetchChunks(self,linkToOGF):
+    #--------------------------------------------------------------------------------------
+        '''
+        Return  file chunks in an array of dicts
+        [
+            {
+                chunkNb
+                linkToOGF
+                senderGUID
+                receiverGUID
+                chunkHash
+            },
+        ]
+        '''
+        try:
+            chunks=self.bNode.filterByFile(linkToOGF)
+            return chunks
+        except Exception as e:
+            print(e)
+            return None
+
+    #--------------------------------------------------------------------------------------
+    def deleteFile(self,linkToOGF):
+    #--------------------------------------------------------------------------------------
+        '''
+        Invalidates a file with specific linkToOGF
+        '''
+        self.bNode.logDeletion(linkToOGF)
+
+
+    #--------------------------------------------------------------------------------------
+    def saveChunk(self,chunk,chunkHash,mine=False):
     #--------------------------------------------------------------------------------------
         try:
-            f= open(Path("./hosted/"+chunkHash+".txt"),'wb')
+            if mine:
+                f= open(Path("./myFiles/"+chunkHash+".txt"),'wb')
+            else:
+                f= open(Path("./hosted/"+chunkHash+".txt"),'wb')
             f.write(chunk)
             f.close()
             return True
@@ -310,6 +378,151 @@ class Node:
             print(e)
             return False
     
+
+    #--------------------------------------------------------------------------------------
+    def downloadChunk(self,target,chunkHash):
+    #--------------------------------------------------------------------------------------
+        '''
+        Download chunk with chunkhash from target peer 
+        '''
+        ip , port = self.peers[target]
+        try:
+            code , reply = self.connectAndSend(ip,port,'dwfl',chunkHash,self.keys[target])
+        except Exception as e:
+            print(e)
+            self.logging('* Problem occured while downloading chunk {}'.format(chunkHash))
+            return False
+
+        if code == 'gtfl':
+            self.saveChunk(reply,chunkHash,mine=True)
+            self.logging('Chunk {} has been downloaded'.format(chunkHash))
+            return True
+        else:
+            if reply=='0' and code =='akfl':
+                print('Peer {} does not have file {}'.format(target,chunkHash))
+                self.logging('Chunk {} failed to download from peer {}'.format(chunkHash,target))
+                return False
+
+
+    def getChunk(self,chunkHash,recvGUID,downloadedChunks,ordered_chunks,number):
+        if (chunkHash not in downloadedChunks) and self.testCon(recvGUID)[0]:
+            if self.downloadChunk(recvGUID,chunkHash):
+                downloadedChunks.append(chunkHash)
+                ordered_chunks[number]=chunkHash
+                print(chunkHash, 'Downloaded')
+            else:
+                print(chunkHash, 'Not Downloaded')
+
+
+    def chunksMissing(self,linkToOGF,ordered_chunks):
+        myFiles = self.fetchMyFiles()
+        totalSize=0
+        for item in myFiles:
+            if item['linkToOGF'] == linkToOGF:
+                totalSize = item['totalSize']
+
+        numberOfChunks=totalSize//self.chunkSize
+        missingChunksOrder=[]
+        for i in range(numberOfChunks):
+            if i not in ordered_chunks:
+                missingChunksOrder.append(i)
+        
+        if not missingChunksOrder:
+            return (False,missingChunksOrder)
+        else:
+            return (True,missingChunksOrder)
+
+
+    def getMissingCInfo(self,chunks,missingChunksOrder):
+        missingChunks=[]
+        for chunk in chunks:
+            if chunk['chunkNb'] in missingChunksOrder:
+                missingChunks.append(chunk)
+        return missingChunks
+
+
+    def mergeChunks(self,fileName,ordered_chunks):
+        with open(Path("./myFiles/"+fileName),'ab') as Ofile:
+            for num in range(len(ordered_chunks)):
+                with open(Path("./myFiles/"+ordered_chunks[num]+".txt"),'rb') as chunk:
+                    Ofile.write(chunk.read())
+        print("Merged chunks into {}".format(fileName))
+
+           
+
+
+    def downloadFile(self,fileName,linkToOGF):
+        '''
+        Downloads all chunks pertaining to a file and reconstructs it locally
+        '''
+        downloadedChunks=[]
+        chunks = self.fetchChunks(linkToOGF)
+        ordered_chunks = {}
+        downloadThreads=[]
+        queue=0
+        if chunks != None:
+            for chunk in chunks:
+                if queue<3:
+                    x=threading.Thread(target=self.getChunk,args=[chunk['chunkHash'],chunk['receiverGUID'],downloadedChunks,ordered_chunks,chunk['chunkNb'],])
+                    downloadThreads.append(x)
+                    x.start()
+                    queue+=1
+                else:
+                    for thread in downloadThreads:
+                        thread.join()
+                    queue=0
+            
+            for thread in downloadThreads:
+                thread.join()
+            
+            downloadThreads.clear()
+            queue=0
+            check = self.chunksMissing(linkToOGF,ordered_chunks)
+            tries=0
+            while check[0] and tries<10:
+                time.sleep(2)
+                toDownload = self.getMissingCInfo(chunks,check[1])
+                for chunk in toDownload:
+                    if queue<3:
+                        x=threading.Thread(target=self.getChunk,args=[chunk['chunkHash'],chunk['receiverGUID'],downloadedChunks,ordered_chunks,chunk['chunkNb'],])
+                        downloadThreads.append(x)
+                        x.start()
+                        queue+=1
+                    else:
+                        for thread in downloadThreads:
+                            thread.join()
+                        queue=0
+                
+                for thread in downloadThreads:
+                    thread.join()
+                
+                check = self.chunksMissing(linkToOGF,ordered_chunks)
+                tries+=1
+            #reconstruct after all is downloaded
+            self.mergeChunks(fileName,ordered_chunks)
+
+
+
+
+            
+
+                
+
+
+
+
+    #--------------------------------------------------------------------------------------
+    def getFile(self,chunkHash):
+    #--------------------------------------------------------------------------------------
+        '''
+        gets the file with chunkhash as name
+        '''
+        for (dirpath , dirnames , filenames) in walk(Path("./hosted")):
+            for item in filenames:
+                if item.split('.')[0]==chunkHash:
+                    return item
+        return None
+
 
     #--------------------------------------------------------------------------------------
     def getUsedSpace(self):
@@ -360,6 +573,16 @@ class Node:
         fpath=Path("./myFiles/test1.txt")
         print(self.sendChunks(fpath))
 
+    def sendFile(self,peercon,filename):
+        pck=''
+        with open(Path("./hosted/"+filename),'rb') as file:
+            pck=file.read()
+        try:
+            peercon.sendData('gtfl',pck,self.keys[peercon.peerguid],fil=True,guid=self.guid)
+        except:
+            self.logging('* Unable to send back requested file to {}'.format(peercon.peerguid))
+        
+
     #--------------------------------------------------------------------------------------
     def sendChunks(self,filepath):
     #--------------------------------------------------------------------------------------
@@ -367,7 +590,8 @@ class Node:
         Uploads the file in chunks to the peers on the network
         '''
         fileHash = hashlib.sha1() #original file hash
-        fileID = str(uuid.uuid4()).replace('-','') #generate unique random id
+        #fileID = str(uuid.uuid1()).replace('-','') #generate unique random id
+        fileID = uuid.uuid1().int
         chunkSize=self.chunkSize
         order=0
         with open(filepath,'rb') as file:
@@ -378,7 +602,7 @@ class Node:
             chunk = file.read(chunkSize)
             while chunk :
                 time.sleep(2)
-                chunkID = str(uuid.uuid4()).replace('-','') #generate unique random id
+                chunkID = str(uuid.uuid1()).replace('-','') #generate unique random id
                 #chunk = file.read(chunkSize)
                 chunkHash =  hashlib.sha1(chunk).hexdigest()
                 self.fileQueue[chunkID] = chunkHash #chunkID : chunkHash
@@ -387,53 +611,71 @@ class Node:
                 #upload chunk here
                 #a routing function must be implemented but for now lets randomize it
                 tosend=chunkID.encode('utf-8')+dash+chunk
-                done=False
-                #host , port='',''
-                while not done:
-                    #resend if not acknowledged | may need to ommit this because tcp already does it under the hood
-                    #to=random.randint(0,len(self.peers.keys())-1)
-                    #print(1)
-                    peer=self.route(rand=True)
-                    host , port =self.peers[peer]
-                    key=self.keys[peer]
-                    #code, reply = self.connectAndSend(host, port, 'upfl', tosend) #awaits a reply
-                    #sendata(sock,'upfl',tosend,key,fil=True)
-                    print(chunkID)
-                    print("hh")
-                    try:
-                        #code , reply = recvdata(sock)
-                        code , reply =self.connectAndSend(host, port, 'upfl', tosend,key=key,file=True) #awaits a reply
-                    except Exception as e:
-                        print(e)
-                        print('here')
-                        continue
-                    print('gg')
-                    fid , ack = reply.split('-')
-                    if code=='ackf' and fid==chunkID:
-                        if ack == '1':
-                            #issue chunck transaction here
-                            #-------------------------
-                            # bool issue_transaction(bool isChunk,string senderGUID,string receiverGUID,string chunkHash,string representationOfOriginalFile)
-                            self.bNode.upload(True,str(self.guid),str(peer),chunkHash,fileID,order)
-                            print("chunk acknowledged")
-                            #-------------------------
-                            print(chunkID," ---ACK")
-                            done = True 
-                            chunk = file.read(chunkSize)
-                            order+=1
-                        else:
-                            print('failed to send chunk')
-                            done =  False
-
+                rep=self.replicationFactor
+                receivers=[]
+                while rep>0:
+                    done=False
+                    #host , port='',''
+                    while not done:
+                        #resend if not acknowledged | may need to ommit this because tcp already does it under the hood
+                        #to=random.randint(0,len(self.peers.keys())-1)
+                        #print(1)
+                        peer=self.route(rand=True)
+                        if peer in receivers:
+                            while peer in receivers:
+                                peer=self.route(rand=True)
+                        receivers.append(peer)
+                        host , port =self.peers[peer]
+                        key=self.keys[peer]
+                        #code, reply = self.connectAndSend(host, port, 'upfl', tosend) #awaits a reply
+                        #sendata(sock,'upfl',tosend,key,fil=True)
+                        print(chunkID)
+                        print("hh")
+                        try:
+                            #code , reply = recvdata(sock)
+                            code , reply =self.connectAndSend(host, port, 'upfl', tosend,key=key,file=True) #awaits a reply
+                        except Exception as e:
+                            print(e)
+                            print('here')
+                            continue
+                        print('gg')
+                        fid , ack = reply.split('-')
+                        if code=='ackf' and fid==chunkID:
+                            if ack == '1':
+                                #issue chunck transaction here
+                                #-------------------------
+                                # bool issue_transaction(bool isChunk,string senderGUID,string receiverGUID,string chunkHash,string representationOfOriginalFile)
+                                self.bNode.logChunkUpload(fileID,self.guid,peer,chunkHash,order)
+                                print("chunk acknowledged")
+                                #-------------------------
+                                print(chunkID," ---ACK")
+                                done = True 
+                                rep-=1
+                                #chunk = file.read(chunkSize)
+                                #order+=1
+                            else:
+                                print('failed to send chunk')
+                                done =  False
+                receivers.clear()
+                chunk = file.read(chunkSize)
+                order+=1
         fileHash = fileHash.hexdigest()
         #issue file transaction here 
         #-------------------------
         print("file uploaded")
-        self.bNode.retreive()
+        self.bNode.logFileUpload(fileID,basename(filepath),fileHash,(order)*self.chunkSize)
+        #time.sleep(5)
+        #myfile=self.bNode.filterByAddress()
+        #myfiles = self.fetchMyFiles()
+        #time.sleep(5)
+        #self.bNode.logDeletion(fileID)
+        #time.sleep(10)
+        #self.bNode.filterByAddress()
+        #self.downloadFile(myfiles[0]['fileName'],myfiles[0]['linkToOGF'])
         #-------------------------
         self.myItems[basename(filepath)]={fileHash : cHashes}
 
-        return [basename(filepath),fileHash]
+        return [basename(filepath),fileID]
 
 
 
@@ -527,7 +769,7 @@ class Node:
             peers = list(self.peers.keys())
             while True:
                 test = random.randint(1,len(peers)-1)
-                if (test != 0 and self.testCon(peers[test])[0]):
+                if (peers[test] != self.guid and self.testCon(peers[test])[0]):
                     return test
                 else:
                     self.logging('** GUID : {} is offline'.format(test))
@@ -636,7 +878,7 @@ class Node:
         '''
         #msgreply=[]
         try:
-            peerconn=PeerConnection(host,port,self.startTime,peerguid=pId)
+            peerconn=PeerConnection(host,port,self.startTime,peerguid=pId,Keys=self.keys)
             if not key:
                 peerconn.sendData(msgType,msgData)
             else:
@@ -797,7 +1039,7 @@ class PeerConnection:
                     msg,nonce,tag = self.encrypt(key,msg)
                     dash='-'.encode('utf-8')
                     shi='[]'.encode('utf-8')
-                    self.sock.sendall(msgType.encode('utf-8')+dash+msg+shi+nonce)
+                    self.sock.sendall((msgType+'_'+str(guid)).encode('utf-8')+dash+msg+shi+nonce)
                 else:
                     print("content : ",msgData)
                     msg,nonce,tag = self.encrypt(key,msgData)
@@ -819,39 +1061,7 @@ class PeerConnection:
         return True
 
 
-    """ #--------------------------------------------------------------------------------------
-    def recvdata(self,key=None):
-    #--------------------------------------------------------------------------------------
-        '''
-        receive msg and return (protocolCode,data) on success 
-        '''
-        try:
-            received=self.sock.recv(4096)
-            #print("Received:")
-            #print(received)
-            try:
-                code,data=received.split('-'.encode('utf-8'),1)
-                #print(code)
-                #print(data)
-                code = code.decode('utf-8')
-                
-                stuff=data.split('-'.encode('utf-8'))
-                #print(">-",stuff)
-                try:
-                    mg=stuff[-1].decode('utf-8','strict')
-                    #print('----------')
-                    return (code,data.decode('utf-8'))
-                except UnicodeDecodeError:
-                    msg=self.decrypt(key,stuff[-1],stuff[0])
-                    #print(msg)
-                    msg=msg.decode('utf-8')
-                    #print(msg)
-                    return (code,msg)    
-            except Exception as e:
-                print(e)
-        except:
-            self.logging("* failed to receive data from {} on {}".format(self.peerip,self.port))
-    """ 
+   
     #--------------------------------------------------------------------------------------    
     def recvdata(self,key=None):
     #--------------------------------------------------------------------------------------
@@ -868,6 +1078,7 @@ class PeerConnection:
                 if '_' in code:
                     code,guid=code.split('_',1)
                     guid=int(guid)
+                    self.peerguid=guid
                     print(guid)
 
                 if code =='upfl':
@@ -906,7 +1117,8 @@ class PeerConnection:
                     except UnicodeDecodeError:
                         msg=self.decrypt(self.Keys[guid],stuff[-1],stuff[0])
                         #print(msg)
-                        msg=msg.decode('utf-8')
+                        if code!='gtfl':
+                            msg=msg.decode('utf-8')
                         #print(msg)
                         return (code,msg)    
             except Exception as e:
