@@ -17,33 +17,41 @@ import sys
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import QPoint, QTimer
 
-# Splashscreen UI
+#Splashscreen UI
 class Ui_splashscreen(QDialog):
+    #-----------------------------------------------------------------------
     def __init__(self, parent=None):
+    #-----------------------------------------------------------------------
         super(Ui_splashscreen, self).__init__(parent)
 
         layout = QVBoxLayout()
         self.setLayout(layout)
 
+    #-----------------------------------------------------------------------
     def flashSplash(self):
+    #-----------------------------------------------------------------------
         self.splash = QSplashScreen(QPixmap('./Images/joinnetwork_logo.png'))
 
-        # By default, SplashScreen will be in the center of the screen.
+        #By default, SplashScreen will be in the center of the screen.
         self.splash.show()
 
-        # Close SplashScreen after 2 seconds (2000 ms)
+        #Close SplashScreen after 2 seconds (2000 ms)
         QTimer.singleShot(2000, self.splash.close)
 
-# Join Network UI
+#Join Network UI
 class Ui_JoinNetwork(QMainWindow):
 
     #Setup UI for the initial function
+    #-----------------------------------------------------------------------
     def __init__(self, parent=None):
+    #-----------------------------------------------------------------------
         super().__init__(parent)
         self.setupUi(self)
 
     #UI Design
+    #-----------------------------------------------------------------------
     def setupUi(self, MainWindow):
+    #-----------------------------------------------------------------------
         MainWindow.setObjectName("MainWindow")
         MainWindow.resize(1128, 792)
         MainWindow.setStyleSheet("#centralwidget{background-image: url(./Images/joinnetwork_background.jpg)}\n"
@@ -111,43 +119,52 @@ class Ui_JoinNetwork(QMainWindow):
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
 
-    # On Click Join Network Button and passing UI in args
+    #On Click Join Network Button and passing UI in args
+    #-----------------------------------------------------------------------
     def join_network_btn_onclick(self, ui):
-        # To-do on clicking Join Network Button
+    #-----------------------------------------------------------------------
+        #To-do on clicking Join Network Button
         ui.showMaximized()
         self.hide()
 
     # Handling Close Window Button event
+    #-----------------------------------------------------------------------
     def closeEvent(self, event):
-
-        # Open dialog box asking to close the app
+    #-----------------------------------------------------------------------
+        #Open dialog box asking to close the app
         close = QMessageBox.question(self,"Close application","Are you sure you want to close the application?", QMessageBox.Yes | QMessageBox.No)
 
-        # If yes is clicked
+        #If yes is clicked
         if close == QMessageBox.Yes:
-            event.accept() # App closed
+            event.accept()   #App closed
 
-        # If no is clicked
+        #If no is clicked
         else:
-            event.ignore() # App not closed
+            event.ignore()   #App not closed
 
 
-    # Renaming Labels, LineEdits, Buttons
+    #Renaming Labels, LineEdits, Buttons
+    #-----------------------------------------------------------------------
     def retranslateUi(self, MainWindow):
+    #-----------------------------------------------------------------------
         _translate = QtCore.QCoreApplication.translate
         MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow"))
         self.ipaddress_label.setText(_translate("MainWindow", "IP Address:"))
         self.ipaddress_input.setPlaceholderText(_translate("MainWindow", "Enter IP..."))
         self.join_network_btn.setText(_translate("MainWindow", "Join Network"))
 
-
+#Item widget for list in homepage
 class Ui_file_item(QWidget):
 
+    #-----------------------------------------------------------------------
     def __init__(self):
+    #-----------------------------------------------------------------------
       QWidget.__init__(self)
       self.setupUi(self)
 
+    #-----------------------------------------------------------------------
     def setupUi(self, file_item):
+    #-----------------------------------------------------------------------
         file_item.setObjectName("file_item")
         file_item.resize(232, 48)
         self.horizontalLayout = QtWidgets.QHBoxLayout(file_item)
@@ -179,7 +196,9 @@ class Ui_file_item(QWidget):
         self.retranslateUi(file_item)
         QtCore.QMetaObject.connectSlotsByName(file_item)
 
+    #-----------------------------------------------------------------------
     def retranslateUi(self, file_item):
+    #-----------------------------------------------------------------------
         _translate = QtCore.QCoreApplication.translate
         file_item.setWindowTitle(_translate("file_item", "Form"))
         self.label.setText(_translate("file_item", "Text Label"))
@@ -191,30 +210,68 @@ class UploadTask(QtCore.QThread):
     #Task thread finished event
     finished = pyqtSignal(object)
 
+    #-----------------------------------------------------------------------
     def __init__(self, node, filepath):
+    #-----------------------------------------------------------------------
         QtCore.QThread.__init__(self)
         self.node = node
         self.filepath = filepath
 
     #When task thread starts
+    #-----------------------------------------------------------------------
     def run(self):
+    #-----------------------------------------------------------------------
         filename , _ = self.node.sendChunks(self.filepath)
         self.finished.emit(filename)
+
+#Node ready task
+""" class NodeReady(QtCore.QThread):
+
+    #Task thread finished event
+    finished = pyqtSignal(object)
+
+    #-----------------------------------------------------------------------
+    def __init__(self, node):
+    #-----------------------------------------------------------------------
+        QtCore.QThread.__init__(self)
+        self.node = node
+
+    #When task thread starts
+    #-----------------------------------------------------------------------
+    def run(self):
+    #-----------------------------------------------------------------------
+        while(not self.node.ready):
+
+            time.sleep(1)
+        
+        
+        self.finished.emit() """
+
 
 
 #Homepage UI
 class Ui_homepage(QMainWindow):
 
-    # Setup UI for the initial function
+    #Setup UI for the initial function
+    #-----------------------------------------------------------------------
     def __init__(self, node,parent=None):
+    #-----------------------------------------------------------------------
         super(Ui_homepage, self).__init__(parent)
         self.setupUi(self)
         self.threads = []
         self.node = node
 
+        #Thread for fetching files on startup
+        """ nodeready = NodeReady(self.node)    #Creating a thread
+        nodeready.finished.connect(self.fetchAllFiles)    #After thread is finished
+        self.threads.append(nodeready)
+        nodeready.start() """
 
-    # UI Design
+
+    #UI Design
+    #-----------------------------------------------------------------------
     def setupUi(self, MainWindow):
+    #-----------------------------------------------------------------------
         MainWindow.setObjectName("MainWindow")
         MainWindow.resize(1188, 886)
         MainWindow.setStyleSheet("#centralwidget{background-color: rgb(12, 12, 12);}\n"
@@ -385,8 +442,10 @@ class Ui_homepage(QMainWindow):
         self.retranslateUi(MainWindow)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
-    # Search query for listview
+    #Search query for listview
+    #-----------------------------------------------------------------------
     def on_searchTextChanged(self, search_query):
+    #-----------------------------------------------------------------------
         for row in range(self.listWidget.count()):
             item = self.listWidget.item(row)
             widget = self.listWidget.itemWidget(item)
@@ -406,26 +465,41 @@ class Ui_homepage(QMainWindow):
         
         return text in keywords
 
-    # On-Click Settings Button
+    #On-Click Settings Button
+    #-----------------------------------------------------------------------
     def settings_onclick(self,ui,ui1):
-        ui.show()   # Showing Settings UI
-        ui1.setWindowOpacity(0.9)   # Homepage UI on 0.9 opacity in the background
+    #-----------------------------------------------------------------------
+        ui.show()    #Showing Settings UI
+        ui1.setWindowOpacity(0.9)    #Homepage UI on 0.9 opacity in the background
+
+
+    #Fetching files and adding to list
+    #-----------------------------------------------------------------------
+    def fetchAllFiles(self):
+    #-----------------------------------------------------------------------
+        allFiles = self.node.fetchMyFiles()
+
+        for item in allFiles:
+            self.addItemtoList(item["fileName"])
 
 
 
-    # On-Click Upload Button
+
+    #On-Click Upload Button
+    #-----------------------------------------------------------------------
     def upload_onclick(self):
-        # To-do on clicking Upload Button
+    #-----------------------------------------------------------------------
+        #To-do on clicking Upload Button
         
         filename = ""
         browseFile = QFileDialog()   # creating a File Dialog
-        filename = browseFile.getOpenFileName(self,"Select File","",)   # receiving a string from the file dialog
+        filename = browseFile.getOpenFileName(self,"Select File","",)   #Receiving a string from the file dialog
 
-        # Extracting file name from filepath
+        #Extracting file name from filepath
         ntpath.basename("a/b/c")
         
-        uploadtask = UploadTask(self.node, Path(filename[0])) #Creating a thread
-        uploadtask.finished.connect(self.addItemtoList) #After thread is finished
+        uploadtask = UploadTask(self.node, Path(filename[0]))    #Creating a thread
+        uploadtask.finished.connect(self.addItemtoList)    #After thread is finished
         self.threads.append(uploadtask)
         uploadtask.start()
 
@@ -433,13 +507,13 @@ class Ui_homepage(QMainWindow):
             thread = threading.Thread(target= self.node.sendChunks, args=[Path(filename[0]),])
             thread.start() """
         
-        
+    #-----------------------------------------------------------------------    
     def addItemtoList(self, filename):
-        
+    #-----------------------------------------------------------------------    
         #head, tail = ntpath.split(filename[0])
         # If filedialog open is clicked
         if filename != "":
-            # Adding an item to the QListWidget
+            #Adding an item to the QListWidget
             myQCustomQWidget = Ui_file_item()
             myQCustomQWidget.label.setText(filename)
             myQListWidgetItem = QListWidgetItem(self.listWidget)
@@ -447,30 +521,35 @@ class Ui_homepage(QMainWindow):
             self.listWidget.addItem(myQListWidgetItem)
             self.listWidget.setItemWidget(myQListWidgetItem,myQCustomQWidget)
 
-    # Handling Close Window Button event in Homepage
+    #Handling Close Window Button event in Homepage
+    #-----------------------------------------------------------------------
     def closeEvent(self, event):
-
-        # Open dialog box asking to minimize tray or close app
+    #-----------------------------------------------------------------------
+        #Open dialog box asking to minimize tray or close app
         close = QMessageBox.question(self,"System Tray","Do you want the program to minimize to tray?", QMessageBox.Yes | QMessageBox.No)
 
-        # If yes is clicked
+        #If yes is clicked
         if close == QMessageBox.Yes:
-            event.ignore() # App not closed
-            self.hide() # UI hidden
+            event.ignore()    #App not closed
+            self.hide()    #UI hidden
 
-        # If no is clicked
+        #If no is clicked
         else:
-            event.accept() # App closed
+            event.accept() #App closed
             sys.exit()
     
-    # If mouse is clicked on the Homepage UI window
+    #If mouse is clicked on the Homepage UI window
+    #-----------------------------------------------------------------------
     def enterEvent(self, event):
+    #-----------------------------------------------------------------------
         self.setWindowOpacity(1)   # Return windows opacity to 1 after closing settings
         return super(Ui_homepage, self).enterEvent(event)
 
 
-    # Renaming Labels, LineEdits, Buttons
+    #Renaming Labels, LineEdits, Buttons
+    #-----------------------------------------------------------------------
     def retranslateUi(self, MainWindow):
+    #-----------------------------------------------------------------------
         _translate = QtCore.QCoreApplication.translate
         MainWindow.setWindowTitle(_translate("MainWindow", "OmniCache"))
         self.wallet_label.setText(_translate("MainWindow", "120"))
@@ -493,13 +572,16 @@ class Ui_homepage(QMainWindow):
 
 class Ui_settings(QMainWindow):
 
-    # Setup UI for the initial function
+    #Setup UI for the initial function
+    #-----------------------------------------------------------------------
     def __init__(self, parent=None):
+    #-----------------------------------------------------------------------
         super(Ui_settings, self).__init__(parent)
         self.setupUi(self)
         
-
+    #-----------------------------------------------------------------------
     def setupUi(self, MainWindow):
+    #-----------------------------------------------------------------------
         MainWindow.setObjectName("MainWindow")
         MainWindow.resize(529, 544)
         MainWindow.setAttribute(QtCore.Qt.WA_TranslucentBackground)
@@ -507,9 +589,9 @@ class Ui_settings(QMainWindow):
                                  "QPushButton{background-color: rgb(0, 168, 243);}"
                                  "QPushButton::hover{background-color: rgb(30,144,255);}")
 
-        self.setWindowFlags(QtCore.Qt.FramelessWindowHint | QtCore.Qt.Popup)  # Set the window frameless and as a popup(clicking outside closes window)
+        self.setWindowFlags(QtCore.Qt.FramelessWindowHint | QtCore.Qt.Popup)  #Set the window frameless and as a popup(clicking outside closes window)
 
-        # Centering window on the screen
+        #Centering settings window on the screen
         qr = self.frameGeometry()
         cp = QDesktopWidget().availableGeometry().center()
         qr.moveCenter(cp)
@@ -572,8 +654,10 @@ class Ui_settings(QMainWindow):
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
 
-    # Renaming Labels, LineEdits, Buttons
+    #Renaming Labels, LineEdits, Buttons
+    #-----------------------------------------------------------------------
     def retranslateUi(self, MainWindow):
+    #-----------------------------------------------------------------------
         _translate = QtCore.QCoreApplication.translate
         MainWindow.setWindowTitle(_translate("MainWindow", "Settings"))
         self.label.setText(_translate("MainWindow", "Settings"))
