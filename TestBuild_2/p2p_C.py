@@ -56,7 +56,7 @@ class Node:
 
         self.startTime = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         self.turnoff=False
-
+        self.ready=False
         self.space=500*(10**6) #in Bytes
         self.chunkSize=3704 #multiple of 13 and less then 4096
         self.fileQueue={}
@@ -199,6 +199,8 @@ class Node:
         
         time.sleep(20)
         self.bNode.enroll()
+        time.sleep(6)
+        self.ready=True
         """ time.sleep(3)
         if len(self.peers)>1:
             time.sleep(1)
@@ -314,14 +316,14 @@ class Node:
     #--------------------------------------------------------------------------------------
         '''
         Return clients files in a dict with linkToOGF as key
-        {
-            linkToOGF:{
-                    linkToOGF
-                    fileName
-                    fileHash
-                    totalSize
+        [
+            {
+                linkToOGF
+                fileName
+                fileHash
+                totalSize
             },
-        }
+        ]
         '''
         try:
             myFiles= self.bNode.filterByAddress()
@@ -767,10 +769,11 @@ class Node:
         '''
         if rand:
             peers = list(self.peers.keys())
+            peers.sort()
             while True:
                 test = random.randint(1,len(peers)-1)
                 if (peers[test] != self.guid and self.testCon(peers[test])[0]):
-                    return test
+                    return peers[test]
                 else:
                     self.logging('** GUID : {} is offline'.format(test))
                 time.sleep(0.5)
