@@ -15,10 +15,8 @@ class bcNode:
     def __init__(self, ip):
     #-----------------------------------------------------------------------
         self.pubKey = ''
-        self.enode = ''
         self.web3 = ''
         self.ip = ip
-        self.contract = None
         self.txNonceCount = 0
         self.initBlockchainNode()
 
@@ -143,7 +141,7 @@ class bcNode:
             self.txNonceCount = self.web3.eth.getTransactionCount(self.pubKey)
 
         nonce = self.txNonceCount
-
+        
 
         tx = {
             'chainId': 15,
