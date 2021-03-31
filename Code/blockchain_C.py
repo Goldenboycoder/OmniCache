@@ -152,6 +152,7 @@ class bcNode:
 
 	    except:
         	print("Error enrolling! Retrying.. If this persists, restart.")
+            self.enroll()
 
 
     #-----------------------------------------------------------------------
