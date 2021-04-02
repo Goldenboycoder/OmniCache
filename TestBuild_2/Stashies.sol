@@ -16,7 +16,7 @@ contract Bank {
     event logChunk(address indexed accountAddress, int indexed linkToOGF, int senderGUID, int indexed receiverGUID, string chunkHash, int chunkNb);
     event logDeletion(address indexed accountAddress, int indexed linkToOGF);
     
-    // @notice Create the bank with an initial amount of stashies
+    // @notice Create the bank with an initial amount of Omnies
     constructor(uint256 total) public {
         totalSupply_ = total;
         balances[msg.sender] = totalSupply_;
