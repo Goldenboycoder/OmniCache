@@ -62,6 +62,7 @@ class bcNode:
             command = 'geth account new --datadir ./ETH/node --password tmpPass'
 
             #Redirect initialization out to logfile
+            Path("./logs").mkdir(exist_ok=True)
             Path("./logs/blockchain").mkdir(exist_ok=True)
             with open('logs/blockchain/initLog.txt', "w") as outfile:
                 subprocess.run(command, shell=True, stdout=outfile, stderr=outfile)
@@ -99,10 +100,14 @@ class bcNode:
         subprocess.run('cls', shell=True)
 
         #Initialize web3
-        time.sleep(3)
-        self.web3 = Web3(Web3.IPCProvider())
-        print("Web3 connected: ", self.web3.isConnected())
-        self.web3.middleware_onion.inject(geth_poa_middleware, layer=0)
+        print("Connecting to web3..")
+        while True:
+            self.web3 = Web3(Web3.IPCProvider())
+            if self.web3.isConnected():
+                self.web3.middleware_onion.inject(geth_poa_middleware, layer=0)
+                if self.web3.geth.personal.list_wallets()[0]['status'] == "Unlocked":
+                    print("Web3 connected. ", self.web3.isConnected())
+                    break
 
         #Make pubKey checksum
         self.pubKey = self.web3.toChecksumAddress(self.pubKey)
@@ -116,6 +121,7 @@ class bcNode:
         contractInterface = self.web3.eth.contract(abi=abi, bytecode=bytecode) #Initialize the contract object
         tx_hash =  contractInterface.constructor(99999999999999).transact() #Deploy the contract
         tx_receipt = self.web3.eth.waitForTransactionReceipt(tx_hash) #Retreive the receipt
+        #print(self.web3.eth.get_balance(self.web3.pubKey));
         print("Contract Address:",tx_receipt.contractAddress) #Return the contract address using the receipt
         
 

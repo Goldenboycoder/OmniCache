@@ -62,6 +62,7 @@ class bcNode:
             command = 'geth account new --datadir ./ETH/node --password tmpPass'
 
             #Redirect initialization out to logfile
+            Path("./logs").mkdir(exist_ok=True)
             Path("./logs/blockchain").mkdir(exist_ok=True)
             with open('logs/blockchain/initLog.txt', "w") as outfile:
                 subprocess.run(command, shell=True, stdout=outfile, stderr=outfile)
@@ -99,10 +100,13 @@ class bcNode:
         subprocess.run('cls', shell=True)
 
         #Initialize web3
-        time.sleep(3)
-        self.web3 = Web3(Web3.IPCProvider())
-        print("Web3 connected: ", self.web3.isConnected())
-        self.web3.middleware_onion.inject(geth_poa_middleware, layer=0)
+        print("Connecting to web3..")
+        while True:
+            self.web3 = Web3(Web3.IPCProvider())
+            self.web3.middleware_onion.inject(geth_poa_middleware, layer=0)
+            if self.web3.isConnected():
+                print("Web3 connected.")
+                break
 
         #Initialize Enode
         self.enode = self.web3.geth.admin.node_info()["enode"]
@@ -139,19 +143,32 @@ class bcNode:
     #-----------------------------------------------------------------------
     def enroll(self):
     #-----------------------------------------------------------------------
-    	try:
-    		tx_hash = self.contract.functions.enroll().transact()
-        	tx_receipt = self.web3.eth.waitForTransactionReceipt(tx_hash)
+        while True:
+            #print(self.web3.eth.syncing)
+            #time.sleep(2)
+            sync=self.web3.eth.syncing
+            if(sync != False):
+                
+                #print(sync)
+                if(sync['currentBlock'] > sync['highestBlock']-3):
+                    break
 
-        	#Check status of enroll transaction
-        	if(tx_receipt['status'] == 1):
-	    		print("Omnies Balance: ", self.contract.functions.myBalance().call())
-	    	else:
-	            print("Error receiving Omnies. Retrying..")
-	            self.enroll()
+        while True:
+            if(self.web3.eth.getBalance(self.pubKey) != 0):
+                break
 
-	    except:
-        	print("Error enrolling! Retrying.. If this persists, restart.")
+        try:
+            tx_hash = self.contract.functions.enroll().transact()
+            tx_receipt = self.web3.eth.waitForTransactionReceipt(tx_hash)
+
+            #Check status of enroll transaction
+            if(tx_receipt['status'] == 1):
+                print("Omnies Balance: ", self.contract.functions.myBalance().call())
+            else:
+                print("Error receiving Omnies. Retrying..")
+                self.enroll()
+        except:
+            print("Error enrolling! Retrying.. If this persists, restart.")
             self.enroll()
 
 
@@ -234,18 +251,26 @@ class bcNode:
     #-----------------------------------------------------------------------
         invalidChunksHosted = []
     	#Read logChunk events for the specific recvGUID
-        event_filter = self.contract.events.logChunk.createFilter(fromBlock=0, argument_filters={'recvGUID':recvGUID})
+        event_filter = self.contract.events.logChunk.createFilter(fromBlock=0, argument_filters={'receiverGUID':recvGUID})
         for event in event_filter.get_all_entries():
             receipt = self.web3.eth.getTransactionReceipt(event['transactionHash']) #Get the transaction receipt
             result = self.contract.events.logChunk().processReceipt(receipt) #Process receipt data from hex
 
             #For each chunk returned, check if its currently on host's machine
+            print(result[0]['args']['chunkHash'])
             if result[0]['args']['chunkHash'] in chunkHashes:
-            	#If yes, check if its invalid
-            	if not self.isFileValid(result[0]['args']['linkToOGF']):
-            		#If invalid append to list of invalidChunksHosted
-                    
-            		invalidChunksHosted.append(result[0]['args']['chunkHash'])
+                print("in chunkHashes")
+                #If yes, check if its invalid
+                if not self.isFileValid(result[0]['args']['linkToOGF']):
+                    #If invalid append to list of invalidChunksHosted
+                    print('Not valid')
+                    if result[0]['args']['chunkHash'] not in invalidChunksHosted:
+                        invalidChunksHosted.append(result[0]['args']['chunkHash'])
+                else:
+                    if result[0]['args']['chunkHash'] in invalidChunksHosted:
+                        invalidChunksHosted.remove(result[0]['args']['chunkHash'])
+
+                                
 
         return invalidChunksHosted
 
@@ -253,7 +278,8 @@ class bcNode:
     def isFileValid(self, link):
     #-----------------------------------------------------------------------
         #Read logDeletion events
-        event_filter = self.contract.events.logDeletion.createFilter(fromBlock=0, argument_filters={'accountAddress':self.web3.eth.defaultAccount, 'linkToOGF':link})
+        event_filter = self.contract.events.logDeletion.createFilter(fromBlock=0, argument_filters={'linkToOGF':link})
+        print(event_filter.get_all_entries())
         if(not event_filter.get_all_entries()):
             return True
         return False
