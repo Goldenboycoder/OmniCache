@@ -8,8 +8,8 @@ import time
 import json
 from pathlib import Path
 from blockchain_C import bcNode
-from os import listdir , walk
-from os.path import isfile, join , getsize , basename
+from os import listdir , walk , remove
+from os.path import isfile, join , getsize , basename ,exists
 import hashlib
 import shutil
 import random
@@ -62,6 +62,7 @@ class Node:
         self.fileQueue={}
         self.myItems={}
         self.replicationFactor=1
+        self.threads={}
 
     #================================Protocols===============================================
     
@@ -197,10 +198,11 @@ class Node:
         # we could broadcast to everyone but we would need to ommit the forwarding from the adbn function
         self.broadcast("adbn",tosend,-1)
         
-        time.sleep(20)
+        #time.sleep(20)
         self.bNode.enroll()
         time.sleep(6)
         self.ready=True
+        self.startCleaning()
         """ time.sleep(3)
         if len(self.peers)>1:
             time.sleep(1)
@@ -405,8 +407,12 @@ class Node:
                 self.logging('Chunk {} failed to download from peer {}'.format(chunkHash,target))
                 return False
 
-
+    #--------------------------------------------------------------------------------------
     def getChunk(self,chunkHash,recvGUID,downloadedChunks,ordered_chunks,number):
+    #--------------------------------------------------------------------------------------
+        '''
+        Test connection to peer and download the chunk if it's not already downloaded
+        '''
         if (chunkHash not in downloadedChunks) and self.testCon(recvGUID)[0]:
             if self.downloadChunk(recvGUID,chunkHash):
                 downloadedChunks.append(chunkHash)
@@ -415,8 +421,12 @@ class Node:
             else:
                 print(chunkHash, 'Not Downloaded')
 
-
+    #--------------------------------------------------------------------------------------
     def chunksMissing(self,linkToOGF,ordered_chunks):
+    #--------------------------------------------------------------------------------------
+        '''
+        Checks for any missing chunks
+        '''
         myFiles = self.fetchMyFiles()
         totalSize=0
         for item in myFiles:
@@ -434,16 +444,24 @@ class Node:
         else:
             return (True,missingChunksOrder)
 
-
+    #--------------------------------------------------------------------------------------
     def getMissingCInfo(self,chunks,missingChunksOrder):
+    #--------------------------------------------------------------------------------------
+        '''
+        Get the information of missing chunks
+        '''
         missingChunks=[]
         for chunk in chunks:
             if chunk['chunkNb'] in missingChunksOrder:
                 missingChunks.append(chunk)
         return missingChunks
 
-
+    #--------------------------------------------------------------------------------------
     def mergeChunks(self,fileName,ordered_chunks):
+    #--------------------------------------------------------------------------------------
+        '''
+        Reconstruct a file after having downloaded all it'chunks
+        '''
         with open(Path("./myFiles/"+fileName),'ab') as Ofile:
             for num in range(len(ordered_chunks)):
                 with open(Path("./myFiles/"+ordered_chunks[num]+".txt"),'rb') as chunk:
@@ -452,8 +470,9 @@ class Node:
 
            
 
-
+    #--------------------------------------------------------------------------------------
     def downloadFile(self,fileName,linkToOGF):
+    #--------------------------------------------------------------------------------------
         '''
         Downloads all chunks pertaining to a file and reconstructs it locally
         '''
@@ -462,6 +481,7 @@ class Node:
         ordered_chunks = {}
         downloadThreads=[]
         queue=0
+        check=''
         if chunks != None:
             for chunk in chunks:
                 if queue<3:
@@ -502,11 +522,82 @@ class Node:
                 tries+=1
             #reconstruct after all is downloaded
             self.mergeChunks(fileName,ordered_chunks)
+            if not check[0]:
+                self.DeleteFiles(chunks,hDir=False)
 
 
 
 
-            
+
+
+    #--------------------------------------------------------------------------------------
+    def getHostedFiles(self):
+    #--------------------------------------------------------------------------------------
+        '''
+        Returns a list of all the files hosted locally
+        '''
+        hostedFiles=[]
+        for (dirpath , dirnames , filenames) in walk(Path("./hosted")):
+            for item in filenames:
+                hostedFiles.append(item.split('.')[0])
+        return hostedFiles
+
+    #--------------------------------------------------------------------------------------
+    def DeleteFiles(self,filesList,hDir=True):
+    #--------------------------------------------------------------------------------------
+        '''
+        Delete files that are in the fileList from hosted or myFiles dir
+        '''
+        directory=''
+        files=[]
+        if hDir:
+            files=filesList
+            directory=Path("./hosted")
+        else:
+            #list of chunks not chunk hashes only
+            for chunk in filesList:
+                files.append(chunk['chunkHash'])
+            directory=Path("./myFiles")
+        print('Deleting')
+        for (dirpath , dirnames , filenames) in walk(directory):
+            for item in filenames:
+                if item.split('.')[0] in files:
+                    remove(join(directory,item))
+                    self.logging('Deleted File : {}'.format(item))
+
+    #--------------------------------------------------------------------------------------
+    def cleanHosted(self):
+    #--------------------------------------------------------------------------------------
+        '''
+        Delete files that are no longer valid 
+        '''
+        while True:
+            time.sleep(2*60)
+            print("cleaning")
+            hostedFiles = self.getHostedFiles()
+            print(hostedFiles)
+            if not hostedFiles:
+                continue
+            else:
+                toDelete = self.bNode.filterByRGUID(self.guid, hostedFiles) #hashes
+                print(toDelete)
+                if toDelete:
+                    print('started Deleting')
+                    self.DeleteFiles(toDelete)
+
+    #--------------------------------------------------------------------------------------
+    def startCleaning(self):
+    #--------------------------------------------------------------------------------------
+        '''
+        Start the cleaning thread 
+        '''
+        cleaner = threading.Thread(target=self.cleanHosted,args=[])
+        self.threads['cleaner']=cleaner
+        cleaner.start()
+
+
+    
+    
 
                 
 
