@@ -4,6 +4,7 @@ import subprocess
 import sys
 import threading
 from pathlib import Path
+from shutil import copy
 from os import path
 from os import listdir
 from web3 import Web3
@@ -12,97 +13,133 @@ from web3.middleware import geth_poa_middleware
 
 class bcNode:
     #-----------------------------------------------------------------------
-    def __init__(self, ip):
+    def __init__(self, ip=None):
     #-----------------------------------------------------------------------
         self.pubKey = ''
         self.enode = ''
         self.web3 = ''
         self.ip = ip
         self.contract = None
-
-    #-====================================Joining the Blockchain======================================
+        self.exists = False
+        self.passPhrase = ''
 
     #-----------------------------------------------------------------------
-    def initBlockchainNode(self, genesisPK=None):
+    def dataDirsExist(self):
     #-----------------------------------------------------------------------
+        exists = path.exists("./ETH/node") or path.exists("./ETH/genesis.json") or path.exists("./ETH/node/keystore")
+        self.exists = exists
+        return exists
 
+    #-----------------------------------------------------------------------
+    def runExistingNode(self):
+    #-----------------------------------------------------------------------
+        print("[Script Output] Running node...")
         #Internal function to run node in a new subprocess
         def runNode(command):
             subprocess.run(command, creationflags=subprocess.CREATE_NEW_CONSOLE)
 
-        #Run initialization script
-        subprocess.run('cls', shell=True)
-        print("Blockchain Node Setup")
-        print("1- Initialize node")
-        print("2- Run node")
-        menuDo = input("Choose option: ")
-
-        #If initialize node
-        if(menuDo == '1'):
-
-            #Delete existing data directory
-            if(path.exists("./ETH/")):
-                print("[Script Output] Deleting existing data directory..")
-                command = 'rmdir /q /s "./ETH/"'
-                res = subprocess.run(command, shell=True).returncode
-                if(res != 0):
-                    sys.exit("[Script Output] Could not delete files.")
-                else:
-                    print("[Script Output] Data directory deleted")
-
-            #Create new account
-            print("[Script Output] Creating account...")
-
-            #Create tmp pass file for geth
-            tmpFile = open("tmpPass", "w")
-            tmpFile.write('123')
-            tmpFile.close()
-
-            #Command for creating new account
-            command = 'geth account new --datadir ./ETH/node --password tmpPass'
-
-            #Redirect initialization out to logfile
-            Path("./logs/blockchain").mkdir(exist_ok=True)
-            with open('logs/blockchain/initLog.txt', "w") as outfile:
-                subprocess.run(command, shell=True, stdout=outfile, stderr=outfile)
-            
-            #Delete the tmp file
-            import os
-            os.remove("tmpPass")
-
-            #Read public keys
-            keyFiles = [filename for filename in listdir('./ETH/node/keystore/') if filename.startswith("UTC")]
-
-            #Set PubKey
-            self.pubKey = "0x" + keyFiles[0].split("--")[2]
-
-            #Create genesis.json
-            genesisJson = json.dumps({"config":{"chainId":15,"homesteadBlock":0,"eip150Block":0,"eip155Block":0,"eip158Block":0,"byzantiumBlock":0,"constantinopleBlock":0,"petersburgBlock":0,"clique":{"period":5,"epoch":30000}},"difficulty":"1","gasLimit":"8000000","extradata":"0x{0}{1}{2}".format(64 * '0', genesisPK[2:], 130 * '0'),"alloc":{"{0}".format(genesisPK[2:]):{"balance":"3000000000000000000000"}}}, indent=4)
-            with open("./ETH/genesis.json","w") as genesisFile :
-                genesisFile.write(genesisJson)
-
-            #Initialize data directory
-            print("[Script Output] Initializing Node...")
-            command = 'geth init --datadir ./ETH/node ./ETH/genesis.json'
-            init = subprocess.run(command, shell=True).returncode
-
-            #If initialization failed then abort
-            if(init != 0):
-                sys.exit("[Script Output] Initialization failed. Aborting..")
-
-        #Run Node
-        print("[Script Output] Starting node...")
-        command = 'geth --datadir ./ETH/node --networkid 15 --cache=2048 --port 30305 --nat extip:{0} --nodiscover'.format(self.ip)
-
+        command = 'geth --datadir ./ETH/node --syncmode=full --networkid 15 --cache=2048 --port 30305 --nat extip:{0} --nodiscover'.format(self.ip)
         threading.Thread(target=runNode, args=[command]).start()
-
         subprocess.run('cls', shell=True)
+
+    #-====================================Account Setup======================================
+
+    #-----------------------------------------------------------------------
+    def createAccount(self):
+    #-----------------------------------------------------------------------
+        #Create new account
+        print("[Script Output] Creating account...")
+
+        #Create tmp pass file for geth
+        tmpFile = open("tmpPass", "w")
+        tmpFile.write(self.passPhrase)
+        tmpFile.close()
+
+        #Command for creating new account
+        command = 'geth account new --datadir ./ETH/node --password tmpPass'
+
+        #Attempt account creation
+        #Redirect creation out to logfile
+        #Path("./logs").mkdir(exist_ok=True)
+        Path("./logs/blockchain").mkdir(parents=True,exist_ok=True)
+        with open('./logs/blockchain/accountCreation.txt', "w") as outfile:
+            init = subprocess.run(command, shell=True, stdout=outfile, stderr=outfile).returncode
+
+        #Delete the tmp pass file
+        import os
+        os.remove("tmpPass")
+
+        #If account creation failed then abort
+        if(init != 0):
+            sys.exit("[Script Output] Account creation failed. Aborting..")
+        
+
+    #-----------------------------------------------------------------------
+    def importAccount(self, pathToKey):
+    #-----------------------------------------------------------------------
+        #Importing existing account
+        print("[Script Output] Importing account...")
+        Path("./ETH/node/keystore/").mkdir(parents=True,exist_ok=True)
+        copy(pathToKey, "./ETH/node/keystore/")
+
+        #Create tmp pass file for geth
+        tmpFile = open("tmpPass", "w")
+        tmpFile.write(self.passPhrase)
+        tmpFile.close()
+
+        #Read public keys
+        keyFiles = [filename for filename in listdir('./ETH/node/keystore/') if filename.startswith("UTC")]
+        #Set PubKey
+        self.pubKey = "0x" + keyFiles[0].split("--")[2]
+
+        command = 'geth --unlock "{0}" --password tmpPass'.format(self.pubKey)
+        result = subprocess.run(command, shell=True).returncode
+        if(result != 0):
+            #print("Invalid passPhrase")
+            return 1   
+        return 0
+        
+
+    #-----------------------------------------------------------------------
+    def createGenesisJson(self, genesisPK):
+    #-----------------------------------------------------------------------
+        #Create genesis.json
+        genesisJson = json.dumps({"config":{"chainId":15,"homesteadBlock":0,"eip150Block":0,"eip155Block":0,"eip158Block":0,"byzantiumBlock":0,"constantinopleBlock":0,"petersburgBlock":0,"clique":{"period":5,"epoch":30000}},"difficulty":"1","gasLimit":"8000000","extradata":"0x{0}{1}{2}".format(64 * '0', genesisPK[2:], 130 * '0'),"alloc":{"{0}".format(genesisPK[2:]):{"balance":"3000000000000000000000"}}}, indent=4)
+        with open("./ETH/genesis.json","w") as genesisFile :
+            genesisFile.write(genesisJson)
+
+        self.preRunInit()
+
+    #-----------------------------------------------------------------------
+    def preRunInit(self):
+    #-----------------------------------------------------------------------
+        #Initialize data directory
+        print("[Script Output] Initializing Node...")
+        command = 'geth init --datadir ./ETH/node ./ETH/genesis.json'
+        init = subprocess.run(command, shell=True).returncode
+
+        #If initialization failed then abort
+        if(init != 0):
+            sys.exit("[Script Output] Pre-Initialization failed. Aborting..")
+
+    #-----------------------------------------------------------------------
+    def postRunInit(self):
+    #-----------------------------------------------------------------------
+        self.runExistingNode()
+        #Read public keys
+        keyFiles = [filename for filename in listdir('./ETH/node/keystore/') if filename.startswith("UTC")]
+
+        #Set PubKey
+        self.pubKey = "0x" + keyFiles[0].split("--")[2]
 
         #Initialize web3
-        time.sleep(3)
-        self.web3 = Web3(Web3.IPCProvider())
-        print("Web3 connected: ", self.web3.isConnected())
-        self.web3.middleware_onion.inject(geth_poa_middleware, layer=0)
+        print("Connecting to web3..")
+        while True:
+            self.web3 = Web3(Web3.IPCProvider())
+            self.web3.middleware_onion.inject(geth_poa_middleware, layer=0)
+            if self.web3.isConnected():
+                print("Web3 connected.")
+                break
 
         #Initialize Enode
         self.enode = self.web3.geth.admin.node_info()["enode"]
@@ -122,11 +159,16 @@ class bcNode:
 
         #Initialize Account
         self.web3.eth.defaultAccount = self.web3.eth.accounts[0]
+        try:
+            #Unlock Account
+            self.web3.geth.personal.unlock_account(self.web3.eth.accounts[0], self.passPhrase, 0)
+            #Clear PassPhrase from memory
+            self.passPhrase = ''
+            return True
+        except:
+            #Invalidate PassPhrase
+            return False
 
-        #Unlock Account
-        self.web3.geth.personal.unlock_account(self.web3.eth.accounts[0], "123", 0)
-
-        
     #-----------------------------------------------------------------------
     def addToNet(self,enode):
     #-----------------------------------------------------------------------
@@ -135,13 +177,28 @@ class bcNode:
         	print("Failed adding peer. Retrying..")
 
         print("[Script Output] Adding node as blockchain peer...")
-    
+
+
+    #-====================================Smart Contract Interface======================================
+
     #-----------------------------------------------------------------------
     def enroll(self):
     #-----------------------------------------------------------------------
+        
+        while True:
+            sync = self.web3.eth.syncing
+            if(sync != False):
+                if(sync['currentBlock'] > sync['highestBlock']-3):
+                    break
+
+        while True:
+            if(self.web3.eth.getBalance(self.pubKey) != 0):
+                break
+        
         try:
             tx_hash = self.contract.functions.enroll().transact()
             tx_receipt = self.web3.eth.waitForTransactionReceipt(tx_hash)
+
             #Check status of enroll transaction
             if(tx_receipt['status'] == 1):
                 print("Omnies Balance: ", self.contract.functions.myBalance().call())
@@ -149,7 +206,7 @@ class bcNode:
                 print("Error receiving Omnies. Retrying..")
                 self.enroll()
         except:
-            print("Error enrolling! Retrying.. If this persists, restart.")
+            print("Already Enrolled")
 
 
     #-----------------------------------------------------------------------
@@ -184,6 +241,9 @@ class bcNode:
         #Call upload chunk
         tx_hash = self.contract.functions.deleteFile(linkToOGF).transact()
         tx_receipt = self.web3.eth.waitForTransactionReceipt(tx_hash)
+
+
+    #-====================================Event Filtering======================================
 
     #-----------------------------------------------------------------------
     def filterByAddress(self):
@@ -225,24 +285,27 @@ class bcNode:
             chunks.append(result[0]['args'])
         return chunks
 
-
     #-----------------------------------------------------------------------
     def filterByRGUID(self, recvGUID, chunkHashes):
     #-----------------------------------------------------------------------
         invalidChunksHosted = []
     	#Read logChunk events for the specific recvGUID
-        event_filter = self.contract.events.logChunk.createFilter(fromBlock=0, argument_filters={'recvGUID':recvGUID})
+        event_filter = self.contract.events.logChunk.createFilter(fromBlock=0, argument_filters={'receiverGUID':recvGUID})
         for event in event_filter.get_all_entries():
             receipt = self.web3.eth.getTransactionReceipt(event['transactionHash']) #Get the transaction receipt
             result = self.contract.events.logChunk().processReceipt(receipt) #Process receipt data from hex
 
             #For each chunk returned, check if its currently on host's machine
+            print(result[0]['args']['chunkHash'])
             if result[0]['args']['chunkHash'] in chunkHashes:
-            	#If yes, check if its invalid
-            	if not self.isFileValid(result[0]['args']['linkToOGF']):
-            		#If invalid append to list of invalidChunksHosted
-                    
-            		invalidChunksHosted.append(result[0]['args']['chunkHash'])
+                #If yes, check if its invalid
+                if not self.isFileValid(result[0]['args']['linkToOGF']):
+                    #If invalid append to list of invalidChunksHosted
+                    if result[0]['args']['chunkHash'] not in invalidChunksHosted:
+                        invalidChunksHosted.append(result[0]['args']['chunkHash'])
+                else:
+                    if result[0]['args']['chunkHash'] in invalidChunksHosted:
+                        invalidChunksHosted.remove(result[0]['args']['chunkHash'])
 
         return invalidChunksHosted
 
@@ -250,7 +313,8 @@ class bcNode:
     def isFileValid(self, link):
     #-----------------------------------------------------------------------
         #Read logDeletion events
-        event_filter = self.contract.events.logDeletion.createFilter(fromBlock=0, argument_filters={'accountAddress':self.web3.eth.defaultAccount, 'linkToOGF':link})
+        event_filter = self.contract.events.logDeletion.createFilter(fromBlock=0, argument_filters={'linkToOGF':link})
         if(not event_filter.get_all_entries()):
             return True
+
         return False

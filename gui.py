@@ -14,8 +14,134 @@ import ntpath
 from p2p_C import Node
 from blockchain_C import bcNode
 import sys
-from PyQt5.QtGui import QPixmap
+from PyQt5.QtGui import QPixmap, QMovie
 from PyQt5.QtCore import QPoint, QTimer
+
+
+#=========================================Threads===================================
+
+#Fetch Files Task
+class FetchFilesTasks(QtCore.QThread):
+
+    #Task thread finished event
+    finished = pyqtSignal(object)
+    progress = pyqtSignal(object)
+
+    #-----------------------------------------------------------------------
+    def __init__(self, node, listwidget):
+    #-----------------------------------------------------------------------
+        QtCore.QThread.__init__(self)
+        self.node = node
+        self.listwidget = listwidget    #List instance from homepage in order to clear list.
+
+    #When task thread starts
+    #-----------------------------------------------------------------------
+    def run(self):
+    #-----------------------------------------------------------------------
+        self.listwidget.clear()
+        allFiles = self.node.bNode.filterByAddress()   #Dictionnary of files containing details
+        for item in allFiles:
+            self.progress.emit((item["fileName"], item["linkToOGF"]))
+
+        #self.finished.emit()
+
+#Download Task
+class DownloadTask(QtCore.QThread):
+
+    #Task thread finished event
+    finished = pyqtSignal(object)
+
+    #-----------------------------------------------------------------------
+    def __init__(self, node, filename, linktoogf):
+    #-----------------------------------------------------------------------
+        QtCore.QThread.__init__(self)
+        self.node = node
+        self.filename = filename
+        self.linktoogf = linktoogf
+
+    #When task thread starts
+    #-----------------------------------------------------------------------
+    def run(self):
+    #-----------------------------------------------------------------------
+        self.node.downloadFile(self.filename, self.linktoogf)
+        #self.finished.emit()
+
+#Delete Task
+class DeleteTask(QtCore.QThread):
+
+    #Task thread finished event
+    finished = pyqtSignal(object)
+
+    #-----------------------------------------------------------------------
+    def __init__(self, node, linktoogf):
+    #-----------------------------------------------------------------------
+        QtCore.QThread.__init__(self)
+        self.node = node
+        self.linktoogf = linktoogf
+
+    #When task thread starts
+    #-----------------------------------------------------------------------
+    def run(self):
+    #-----------------------------------------------------------------------
+        self.node.bNode.logDeletion(self.linktoogf)
+        self.finished.emit(None)
+
+
+#Upload Task
+class UploadTask(QtCore.QThread):
+
+    #Task thread finished event
+    finished = pyqtSignal(object)
+    progress = pyqtSignal(int)
+
+    #-----------------------------------------------------------------------
+    def __init__(self, node, filepath, progressbar):
+    #-----------------------------------------------------------------------
+        QtCore.QThread.__init__(self)
+        self.node = node
+        self.filepath = filepath
+        self.progressbar = progressbar
+
+    #When task thread starts
+    #-----------------------------------------------------------------------
+    def run(self):
+    #-----------------------------------------------------------------------
+
+        filename , linktoogf = self.node.sendChunks(self.filepath, self.progressbar)
+        self.finished.emit((filename , linktoogf))
+
+
+#Node ready task
+class NodeReady(QtCore.QThread):
+
+    #Task thread finished event
+    finished = pyqtSignal()
+
+    #-----------------------------------------------------------------------
+    def __init__(self, node):
+    #-----------------------------------------------------------------------
+        QtCore.QThread.__init__(self)
+        self.node = node
+
+    #When task thread starts
+    #-----------------------------------------------------------------------
+    def run(self):
+    #-----------------------------------------------------------------------
+        while(not self.node.ready):    #Keep on checking node is ready to fetch files.
+            time.sleep(1)
+        self.node.bNode.postRunInit()
+        tosend='-'.join([self.node.bNode.pubKey,self.node.bNode.enode])
+        self.node.broadcast("adbn",tosend,-1)
+        self.node.save()
+        self.node.bNode.enroll()
+        self.node.startCleaning()
+
+        self.finished.emit()
+
+
+
+
+#=========================================GUIs===================================
 
 #Splashscreen UI
 class Ui_splashscreen(QDialog):
@@ -38,6 +164,80 @@ class Ui_splashscreen(QDialog):
         #Close SplashScreen after 2 seconds (2000 ms)
         QTimer.singleShot(2000, self.splash.close)
 
+#============================================================================
+
+class Ui_Loginpage(QMainWindow):
+    #-----------------------------------------------------------------------
+    def __init__(self, parent=None):
+    #-----------------------------------------------------------------------
+        super().__init__(parent)
+        self.setupUi(self)
+        
+
+    def setupUi(self, MainWindow):
+        MainWindow.setObjectName("MainWindow")
+        MainWindow.resize(1211, 869)
+        MainWindow.setStyleSheet("#centralwidget{background-image: url(D:/Uni/Senior Project/OmniCache/Images/joinnetwork_background.jpg)}\n"
+                                 "QPushButton{background-color: rgb(0, 168, 243);}"
+                                 "QPushButton::hover{background-color: rgb(30,144,255);}")
+        self.centralwidget = QtWidgets.QWidget(MainWindow)
+        self.centralwidget.setObjectName("centralwidget")
+        self.verticalLayout = QtWidgets.QVBoxLayout(self.centralwidget)
+        self.verticalLayout.setObjectName("verticalLayout")
+        spacerItem = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+        self.verticalLayout.addItem(spacerItem)
+        self.omnicache_logo = QtWidgets.QLabel(self.centralwidget)
+        self.omnicache_logo.setText("")
+        self.omnicache_logo.setPixmap(QtGui.QPixmap("d:\\Uni\\Senior Project\\UI Designs\\../OmniCache/Images/joinnetwork_logo.png"))
+        self.omnicache_logo.setObjectName("omnicache_logo")
+        self.verticalLayout.addWidget(self.omnicache_logo, 0, QtCore.Qt.AlignHCenter|QtCore.Qt.AlignVCenter)
+        spacerItem1 = QtWidgets.QSpacerItem(20, 100, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
+        self.verticalLayout.addItem(spacerItem1)
+        self.horizontalLayout = QtWidgets.QHBoxLayout()
+        self.horizontalLayout.setObjectName("horizontalLayout")
+        spacerItem2 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        self.horizontalLayout.addItem(spacerItem2)
+        self.create_account_btn = QtWidgets.QPushButton(self.centralwidget)
+        self.create_account_btn.setStyleSheet("font: 10pt Proxima Nova;\n"
+                                              "color: rgb(255, 255, 255);\n"
+                                              "border-radius: 6px;\n"
+                                              "padding: 10px;")
+        self.create_account_btn.setObjectName("create_account_btn")
+        self.horizontalLayout.addWidget(self.create_account_btn, 0, QtCore.Qt.AlignHCenter|QtCore.Qt.AlignVCenter)
+        spacerItem3 = QtWidgets.QSpacerItem(100, 20, QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Minimum)
+        self.horizontalLayout.addItem(spacerItem3)
+        self.import_account_btn = QtWidgets.QPushButton(self.centralwidget)
+        self.import_account_btn.setStyleSheet("font: 10pt Proxima Nova;\n"
+                                              "color: rgb(255, 255, 255);\n"
+                                              "border-radius: 6px;\n"
+                                              "padding: 10px;")
+        self.import_account_btn.setObjectName("import_account_btn")
+        self.horizontalLayout.addWidget(self.import_account_btn, 0, QtCore.Qt.AlignHCenter|QtCore.Qt.AlignVCenter)
+        spacerItem4 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        self.horizontalLayout.addItem(spacerItem4)
+        self.verticalLayout.addLayout(self.horizontalLayout)
+        spacerItem5 = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+        self.verticalLayout.addItem(spacerItem5)
+        MainWindow.setCentralWidget(self.centralwidget)
+
+        self.retranslateUi(MainWindow)
+        QtCore.QMetaObject.connectSlotsByName(MainWindow)
+
+    def showJoinNetwork(self, joinetworkui):
+
+        joinetworkui.showMaximized()
+        self.hide()
+        
+    def retranslateUi(self, MainWindow):
+        _translate = QtCore.QCoreApplication.translate
+        MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow"))
+        self.create_account_btn.setText(_translate("MainWindow", "Create Account"))
+        self.import_account_btn.setText(_translate("MainWindow", "Import Account"))
+
+
+#============================================================================
+
+
 #Join Network UI
 class Ui_JoinNetwork(QMainWindow):
 
@@ -56,8 +256,8 @@ class Ui_JoinNetwork(QMainWindow):
         MainWindow.resize(1128, 792)
         MainWindow.setStyleSheet("#centralwidget{background-image: url(./Images/joinnetwork_background.jpg)}\n"
                                  "QLineEdit{background-color: rgb(12,12,12);}"
-                                 "QPushButton#join_network_btn{background-color: rgb(0, 168, 243);}\n"
-                                 "QPushButton#join_network_btn:hover{background-color: rgb(30,144,255);}"
+                                 "QPushButton{background-color: rgb(0, 168, 243);}"
+                                 "QPushButton::hover{background-color: rgb(30,144,255);}"
                                  )
         MainWindow.setAnimated(True)
         self.centralwidget = QtWidgets.QWidget(MainWindow)
@@ -105,7 +305,6 @@ class Ui_JoinNetwork(QMainWindow):
         self.verticalLayout_4.addLayout(self.horizontalLayout_25)
         self.join_network_btn = QtWidgets.QPushButton(self.centralwidget)
         self.join_network_btn.setStyleSheet("font: 10pt \"Proxima Nova\";\n"
-                                            "background-color: rgb(0, 168, 243);\n"
                                             "color: rgb(255, 255, 255);\n"
                                             "border-radius: 6px;\n"
                                             "padding: 10px")
@@ -121,11 +320,12 @@ class Ui_JoinNetwork(QMainWindow):
 
     #On Click Join Network Button and passing UI in args
     #-----------------------------------------------------------------------
-    def join_network_btn_onclick(self, ui):
+    def join_network_btn_onclick(self, loadingui):
     #-----------------------------------------------------------------------
         #To-do on clicking Join Network Button
-        ui.showMaximized()
+        loadingui.showMaximized()
         self.hide()
+
 
     # Handling Close Window Button event
     #-----------------------------------------------------------------------
@@ -148,19 +348,93 @@ class Ui_JoinNetwork(QMainWindow):
     def retranslateUi(self, MainWindow):
     #-----------------------------------------------------------------------
         _translate = QtCore.QCoreApplication.translate
-        MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow"))
+        MainWindow.setWindowTitle(_translate("MainWindow", "OmniCache"))
         self.ipaddress_label.setText(_translate("MainWindow", "IP Address:"))
         self.ipaddress_input.setPlaceholderText(_translate("MainWindow", "Enter IP..."))
         self.join_network_btn.setText(_translate("MainWindow", "Join Network"))
+
+#============================================================================
+
+#Loading page UI
+class Ui_loadingpage(QMainWindow):
+
+    def __init__(self, node, Homepage_UI, parent=None):
+    #-----------------------------------------------------------------------
+        super().__init__(parent)
+        self.setupUi(self)
+        self.node = node
+        self.Homepage_UI = Homepage_UI
+        self.threads = []
+        self.readyup()
+
+    def setupUi(self, MainWindow):
+        MainWindow.setObjectName("MainWindow")
+        MainWindow.resize(1042, 794)
+        MainWindow.setStyleSheet("#centralwidget{background-color: #222222}")
+        self.centralwidget = QtWidgets.QWidget(MainWindow)
+        self.centralwidget.setObjectName("centralwidget")
+        self.verticalLayout = QtWidgets.QVBoxLayout(self.centralwidget)
+        self.verticalLayout.setObjectName("verticalLayout")
+        spacerItem = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+        self.verticalLayout.addItem(spacerItem)
+        self.logo_animation = QtWidgets.QLabel(self.centralwidget)
+        self.logo_animation.setText("")
+        self.logo_animation.setObjectName("logo_animation")
+        self.verticalLayout.addWidget(self.logo_animation, 0, QtCore.Qt.AlignHCenter|QtCore.Qt.AlignVCenter)
+        spacerItem1 = QtWidgets.QSpacerItem(20, 60, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
+        self.verticalLayout.addItem(spacerItem1)
+        self.node_ready_lbl = QtWidgets.QLabel(self.centralwidget)
+        self.node_ready_lbl.setStyleSheet("font: 20pt Proxima Nova;\n"
+                                          "color: rgb(255, 255, 255);")
+        self.node_ready_lbl.setObjectName("node_ready_lbl")
+        self.verticalLayout.addWidget(self.node_ready_lbl, 0, QtCore.Qt.AlignHCenter|QtCore.Qt.AlignVCenter)
+        spacerItem2 = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+        self.verticalLayout.addItem(spacerItem2)
+        MainWindow.setCentralWidget(self.centralwidget)
+
+        self.gif = QMovie("./Images/loading_animation.gif")
+        self.logo_animation.setMovie(self.gif)
+        self.gif.start()
+
+        self.retranslateUi(MainWindow)
+        QtCore.QMetaObject.connectSlotsByName(MainWindow)
+
+    def retranslateUi(self, MainWindow):
+        _translate = QtCore.QCoreApplication.translate
+        MainWindow.setWindowTitle(_translate("MainWindow", "OmniCache"))
+        self.node_ready_lbl.setText(_translate("MainWindow", "Readying up node..."))
+
+
+    def readyup(self):
+
+        nodeready = NodeReady(self.node)    #Creating a thread
+        nodeready.finished.connect(self.showHomepage)    #After thread is finished
+        self.threads.append(nodeready)
+        nodeready.start()
+    
+    def showHomepage(self):
+
+        self.Homepage_UI.showMaximized()
+        self.hide()
+
+
+#============================================================================
+        
 
 #Item widget for list in homepage
 class Ui_file_item(QWidget):
 
     #-----------------------------------------------------------------------
-    def __init__(self):
+    def __init__(self, node, linktoogf, task):
     #-----------------------------------------------------------------------
-      QWidget.__init__(self)
-      self.setupUi(self)
+        QWidget.__init__(self)
+        self.node = node
+        self.linktoogf = linktoogf
+        self.threads = []      #list of threads for item in list
+        self.task = task
+        self.setupUi(self)
+
+         
 
     #-----------------------------------------------------------------------
     def setupUi(self, file_item):
@@ -172,7 +446,7 @@ class Ui_file_item(QWidget):
         self.label = QtWidgets.QLabel(file_item)
         self.label.setObjectName("label")
         self.label.setStyleSheet("font: 14pt \"Proxima Nova\";\n"
-                                "color: rgb(255, 255, 255);")
+                                 "color: rgb(255, 255, 255);")
         self.horizontalLayout.addWidget(self.label, 0, QtCore.Qt.AlignLeft|QtCore.Qt.AlignVCenter)
         self.download_btn = QtWidgets.QPushButton(file_item)
         self.download_btn.setStyleSheet("border: 0")
@@ -182,19 +456,49 @@ class Ui_file_item(QWidget):
         self.download_btn.setIcon(icon)
         self.download_btn.setObjectName("download_btn")
         self.horizontalLayout.addWidget(self.download_btn, 0, QtCore.Qt.AlignLeft)
-        self.pushButton = QtWidgets.QPushButton(file_item)
-        self.pushButton.setStyleSheet("border:0")
-        self.pushButton.setText("")
+        self.delete_btn = QtWidgets.QPushButton(file_item)
+        self.delete_btn.setStyleSheet("border:0")
+        self.delete_btn.setText("")
         icon1 = QtGui.QIcon()
         icon1.addPixmap(QtGui.QPixmap("./Images/trash_icon.png"), QtGui.QIcon.Normal, QtGui.QIcon.On)
-        self.pushButton.setIcon(icon1)
-        self.pushButton.setObjectName("pushButton")
-        self.horizontalLayout.addWidget(self.pushButton, 0, QtCore.Qt.AlignLeft|QtCore.Qt.AlignVCenter)
+        self.delete_btn.setIcon(icon1)
+        self.delete_btn.setObjectName("Delete Button")
+        self.horizontalLayout.addWidget(self.delete_btn, 0, QtCore.Qt.AlignLeft|QtCore.Qt.AlignVCenter)
         spacerItem = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
         self.horizontalLayout.addItem(spacerItem)
 
         self.retranslateUi(file_item)
         QtCore.QMetaObject.connectSlotsByName(file_item)
+
+        self.download_btn.clicked.connect(lambda: self.download_btn_onClick(self.node, self.linktoogf))
+        self.delete_btn.clicked.connect(lambda: self.delete_btn_onClick(self.linktoogf))
+
+    #File download button on-click
+    #-----------------------------------------------------------------------
+    def download_btn_onClick(self, node, linktoogf):
+    #-----------------------------------------------------------------------  
+        downloadtask = DownloadTask(node, self.label.text(), linktoogf)    #Creating a thread
+        #downloadtask.finished.connect(self.addItemtoList)    #After thread is finished
+        self.threads.append(downloadtask)
+        downloadtask.start()       #Start thread
+
+
+    #File delete button on-click
+    #-----------------------------------------------------------------------
+    def delete_btn_onClick(self, linktoogf):
+    #-----------------------------------------------------------------------  
+        deletetask = DeleteTask(self.node, linktoogf)    #Creating a thread
+        deletetask.finished.connect(self.runfetchtask)    #After delete thread is finished, running fetching files task
+        self.threads.append(deletetask)
+        deletetask.start()       #Start thread
+
+    #Fetching files and adding to list
+    #-----------------------------------------------------------------------
+    def runfetchtask(self):
+    #-----------------------------------------------------------------------
+        self.threads.append(self.task)
+        self.task.start()
+
 
     #-----------------------------------------------------------------------
     def retranslateUi(self, file_item):
@@ -204,49 +508,7 @@ class Ui_file_item(QWidget):
         self.label.setText(_translate("file_item", "Text Label"))
 
 
-#Upload Task
-class UploadTask(QtCore.QThread):
-
-    #Task thread finished event
-    finished = pyqtSignal(object)
-
-    #-----------------------------------------------------------------------
-    def __init__(self, node, filepath):
-    #-----------------------------------------------------------------------
-        QtCore.QThread.__init__(self)
-        self.node = node
-        self.filepath = filepath
-
-    #When task thread starts
-    #-----------------------------------------------------------------------
-    def run(self):
-    #-----------------------------------------------------------------------
-        filename , _ = self.node.sendChunks(self.filepath)
-        self.finished.emit(filename)
-
-#Node ready task
-""" class NodeReady(QtCore.QThread):
-
-    #Task thread finished event
-    finished = pyqtSignal(object)
-
-    #-----------------------------------------------------------------------
-    def __init__(self, node):
-    #-----------------------------------------------------------------------
-        QtCore.QThread.__init__(self)
-        self.node = node
-
-    #When task thread starts
-    #-----------------------------------------------------------------------
-    def run(self):
-    #-----------------------------------------------------------------------
-        while(not self.node.ready):
-
-            time.sleep(1)
-        
-        
-        self.finished.emit() """
-
+#============================================================================
 
 
 #Homepage UI
@@ -254,7 +516,7 @@ class Ui_homepage(QMainWindow):
 
     #Setup UI for the initial function
     #-----------------------------------------------------------------------
-    def __init__(self, node,parent=None):
+    def __init__(self, node, parent=None):
     #-----------------------------------------------------------------------
         super(Ui_homepage, self).__init__(parent)
         self.setupUi(self)
@@ -286,11 +548,11 @@ class Ui_homepage(QMainWindow):
         self.verticalLayout.setObjectName("verticalLayout")
         self.horizontalLayout = QtWidgets.QHBoxLayout()
         self.horizontalLayout.setObjectName("horizontalLayout")
-        self.label_2 = QtWidgets.QLabel(self.centralwidget)
-        self.label_2.setText("")
-        self.label_2.setPixmap(QtGui.QPixmap("./Images/homepage_logo.png"))
-        self.label_2.setObjectName("label_2")
-        self.horizontalLayout.addWidget(self.label_2, 0, QtCore.Qt.AlignVCenter)
+        self.hp_logo = QtWidgets.QLabel(self.centralwidget)
+        self.hp_logo.setText("")
+        self.hp_logo.setPixmap(QtGui.QPixmap("./Images/homepage_logo.png"))
+        self.hp_logo.setObjectName("Homepage Logo")
+        self.horizontalLayout.addWidget(self.hp_logo, 0, QtCore.Qt.AlignVCenter)
         self.verticalLayout_2 = QtWidgets.QVBoxLayout()
         self.verticalLayout_2.setObjectName("verticalLayout_2")
         self.settings_btn = QtWidgets.QPushButton(self.centralwidget)
@@ -303,11 +565,23 @@ class Ui_homepage(QMainWindow):
         self.settings_btn.setIconSize(QtCore.QSize(25, 25))
         self.settings_btn.setObjectName("settings_btn")
         self.verticalLayout_2.addWidget(self.settings_btn, 0, QtCore.Qt.AlignRight | QtCore.Qt.AlignBottom)
+        self.horizontalLayout_9 = QtWidgets.QHBoxLayout()
+        self.horizontalLayout_9.setContentsMargins(-1, -1, 0, -1)
+        self.horizontalLayout_9.setSpacing(0)
+        self.horizontalLayout_9.setObjectName("horizontalLayout_9")
+        spacerItem = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)	
+        self.horizontalLayout_9.addItem(spacerItem)
         self.wallet_label = QtWidgets.QLabel(self.centralwidget)
         self.wallet_label.setStyleSheet("font: 14pt \"Proxima Nova\";\n"
                                             "color: rgb(255, 255, 255);")
         self.wallet_label.setObjectName("wallet_label")
-        self.verticalLayout_2.addWidget(self.wallet_label, 0, QtCore.Qt.AlignRight | QtCore.Qt.AlignBottom)
+        self.horizontalLayout_9.addWidget(self.wallet_label, 0, QtCore.Qt.AlignRight|QtCore.Qt.AlignBottom)
+        self.wallet_logo = QtWidgets.QLabel(self.centralwidget)
+        self.wallet_logo.setText("")	
+        self.wallet_logo.setPixmap(QtGui.QPixmap("./Images/currency_logo.png"))	
+        self.wallet_logo.setObjectName("Wallet Logo")	
+        self.horizontalLayout_9.addWidget(self.wallet_logo)
+        self.verticalLayout_2.addLayout(self.horizontalLayout_9)
         self.hosting_value_label = QtWidgets.QLabel(self.centralwidget)
         self.hosting_value_label.setStyleSheet("font: 14pt \"Proxima Nova\";\n"
                                                    "color: rgb(255, 255, 255);")
@@ -384,7 +658,7 @@ class Ui_homepage(QMainWindow):
                                         "color: rgb(255, 255, 255);"          
                                         )
 
-        self.progress_bar.setProperty("value", 35)
+        self.progress_bar.setProperty("value", 0)
         self.progress_bar.setOrientation(QtCore.Qt.Horizontal)
         self.progress_bar.setObjectName("progress_bar")
         self.horizontalLayout_8.addWidget(self.progress_bar)
@@ -477,13 +751,12 @@ class Ui_homepage(QMainWindow):
     #-----------------------------------------------------------------------
     def fetchAllFiles(self):
     #-----------------------------------------------------------------------
-        allFiles = self.node.fetchMyFiles()
-
-        for item in allFiles:
-            self.addItemtoList(item["fileName"])
-
-
-
+        self.listWidget.clear()
+        fetchfilestask = FetchFilesTasks(self.node, self.listWidget)
+        fetchfilestask.progress.connect(self.addItemtoList)
+        self.threads.append(fetchfilestask)
+        fetchfilestask.start()
+   
 
     #On-Click Upload Button
     #-----------------------------------------------------------------------
@@ -491,31 +764,40 @@ class Ui_homepage(QMainWindow):
     #-----------------------------------------------------------------------
         #To-do on clicking Upload Button
         
+        #Open file dialog
         filename = ""
         browseFile = QFileDialog()   # creating a File Dialog
         filename = browseFile.getOpenFileName(self,"Select File","",)   #Receiving a string from the file dialog
 
-        #Extracting file name from filepath
-        ntpath.basename("a/b/c")
-        
-        uploadtask = UploadTask(self.node, Path(filename[0]))    #Creating a thread
-        uploadtask.finished.connect(self.addItemtoList)    #After thread is finished
-        self.threads.append(uploadtask)
-        uploadtask.start()
+        #if cancel is clicked
+        if filename == "":
+            pass
+
+        else:
+            uploadtask = UploadTask(self.node, Path(filename[0]), self.progress_bar)    #Creating a thread
+            uploadtask.finished.connect(self.addItemtoList)    #After thread is finished
+            self.threads.append(uploadtask)
+            uploadtask.start()
 
         """ if filename != "":
             thread = threading.Thread(target= self.node.sendChunks, args=[Path(filename[0]),])
             thread.start() """
         
     #-----------------------------------------------------------------------    
-    def addItemtoList(self, filename):
-    #-----------------------------------------------------------------------    
-        #head, tail = ntpath.split(filename[0])
+    def addItemtoList(self, filenameandlinktoogf):
+    #-----------------------------------------------------------------------
+        """ Extracting file name from filepath
+        ntpath.basename("a/b/c")  
+        head, tail = ntpath.split(filename[0]) """
+
+
         # If filedialog open is clicked
-        if filename != "":
+        if filenameandlinktoogf[0] != "":
             #Adding an item to the QListWidget
-            myQCustomQWidget = Ui_file_item()
-            myQCustomQWidget.label.setText(filename)
+            fetchfilestask = FetchFilesTasks(self.node, self.listWidget)    #Creating an instance of fetch files task and sending it to each item in the list
+            fetchfilestask.progress.connect(self.addItemtoList)   #Adding item to list after fetching files task
+            myQCustomQWidget = Ui_file_item(self.node, filenameandlinktoogf[1], fetchfilestask)
+            myQCustomQWidget.label.setText(filenameandlinktoogf[0])
             myQListWidgetItem = QListWidgetItem(self.listWidget)
             myQListWidgetItem.setSizeHint(myQCustomQWidget.sizeHint())
             self.listWidget.addItem(myQListWidgetItem)
@@ -553,7 +835,7 @@ class Ui_homepage(QMainWindow):
         _translate = QtCore.QCoreApplication.translate
         MainWindow.setWindowTitle(_translate("MainWindow", "OmniCache"))
         self.wallet_label.setText(_translate("MainWindow", "120"))
-        self.hosting_value_label.setText(_translate("MainWindow", "10 GB"))
+        self.hosting_value_label.setText(_translate("MainWindow", "Hosting: 10 GB"))
         self.mystash_label.setText(_translate("MainWindow", "My Stash"))
         self.search_input.setPlaceholderText(_translate("MainWindow", "Search..."))
         self.upload_btn.setText(_translate("MainWindow", "Upload file"))
@@ -568,6 +850,7 @@ class Ui_homepage(QMainWindow):
         self.fd_peers_label.setText(_translate("MainWindow", "Number of Peers:"))
 
 
+#============================================================================
 
 
 class Ui_settings(QMainWindow):

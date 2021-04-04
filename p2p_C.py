@@ -6,10 +6,11 @@ import datetime
 import subprocess
 import time
 import json
+import math
 from pathlib import Path
 from blockchain_C import bcNode
-from os import listdir , walk
-from os.path import isfile, join , getsize , basename
+from os import listdir , walk , remove, stat
+from os.path import isfile, join , getsize , basename ,exists
 import hashlib
 import shutil
 import random
@@ -62,6 +63,7 @@ class Node:
         self.fileQueue={}
         self.myItems={}
         self.replicationFactor=1
+        self.threads={}
 
     #================================Protocols===============================================
     
@@ -112,7 +114,7 @@ class Node:
         except Exception as e:
             print(e)
 
-        
+
     def adbn(self,peercon,data):
         pk , enode= data.split('-')
         """ if self.bNode.isGenesis :
@@ -185,22 +187,30 @@ class Node:
                 self.peers[int(peer)]=table[peer]
         self.logging("Sucessfully defined as peerID = {} \n with table {}\n Genesis PK : {}".format(guid,table,genesisPK))
         #start generating keys
-        self.generateKeys()
         
-        self.bNode.initBlockchainNode(genesisPK=genesisPK)
+        self.generateKeys()
+
+        #self.bNode.postRunInit()
+        self.bNode.createGenesisJson(genesisPK)
+
+        #self.bNode.initBlockchainNode(genesisPK=genesisPK)
+
         #at the end send an add blockchain node to network (ADBN) request
         #peer=max(self.peers.keys()) #or random 
         #toforward=self.peers[peer]
-        tosend='-'.join([self.bNode.pubKey,self.bNode.enode])
-        #self.connectAndSend(toforward[0],toforward[1],"adbn",tosend,pId=peer,waitReply=False)
-               
-        # we could broadcast to everyone but we would need to ommit the forwarding from the adbn function
-        self.broadcast("adbn",tosend,-1)
         
-        time.sleep(20)
-        self.bNode.enroll()
-        time.sleep(6)
+        #self.connectAndSend(toforward[0],toforward[1],"adbn",tosend,pId=peer,waitReply=False)
+        #passphrase = input("Enter passphrase: ")
+        #self.bNode.postRunInit(passphrase)       
+        # we could broadcast to everyone but we would need to ommit the forwarding from the adbn function
+        #tosend='-'.join([self.bNode.pubKey,self.bNode.enode])
+        #self.broadcast("adbn",tosend,-1)
+        
+        #time.sleep(20)
+        #self.bNode.enroll()
+        #time.sleep(6)
         self.ready=True
+        #self.startCleaning()
         """ time.sleep(3)
         if len(self.peers)>1:
             time.sleep(1)
@@ -310,7 +320,7 @@ class Node:
     
     #==========================================Files=========================================
     
-    
+    """  
     #--------------------------------------------------------------------------------------
     def fetchMyFiles(self):
     #--------------------------------------------------------------------------------------
@@ -354,15 +364,15 @@ class Node:
             return chunks
         except Exception as e:
             print(e)
-            return None
+            return None """
 
-    #--------------------------------------------------------------------------------------
+    """ #--------------------------------------------------------------------------------------
     def deleteFile(self,linkToOGF):
     #--------------------------------------------------------------------------------------
         '''
         Invalidates a file with specific linkToOGF
         '''
-        self.bNode.logDeletion(linkToOGF)
+        self.bNode.logDeletion(linkToOGF) """
 
 
     #--------------------------------------------------------------------------------------
@@ -405,8 +415,12 @@ class Node:
                 self.logging('Chunk {} failed to download from peer {}'.format(chunkHash,target))
                 return False
 
-
+    #--------------------------------------------------------------------------------------
     def getChunk(self,chunkHash,recvGUID,downloadedChunks,ordered_chunks,number):
+    #--------------------------------------------------------------------------------------
+        '''
+        Test connection to peer and download the chunk if it's not already downloaded
+        '''
         if (chunkHash not in downloadedChunks) and self.testCon(recvGUID)[0]:
             if self.downloadChunk(recvGUID,chunkHash):
                 downloadedChunks.append(chunkHash)
@@ -415,9 +429,13 @@ class Node:
             else:
                 print(chunkHash, 'Not Downloaded')
 
-
+    #--------------------------------------------------------------------------------------
     def chunksMissing(self,linkToOGF,ordered_chunks):
-        myFiles = self.fetchMyFiles()
+    #--------------------------------------------------------------------------------------
+        '''
+        Checks for any missing chunks
+        '''
+        myFiles = self.bNode.filterByAddress()
         totalSize=0
         for item in myFiles:
             if item['linkToOGF'] == linkToOGF:
@@ -434,16 +452,24 @@ class Node:
         else:
             return (True,missingChunksOrder)
 
-
+    #--------------------------------------------------------------------------------------
     def getMissingCInfo(self,chunks,missingChunksOrder):
+    #--------------------------------------------------------------------------------------
+        '''
+        Get the information of missing chunks
+        '''
         missingChunks=[]
         for chunk in chunks:
             if chunk['chunkNb'] in missingChunksOrder:
                 missingChunks.append(chunk)
         return missingChunks
 
-
+    #--------------------------------------------------------------------------------------
     def mergeChunks(self,fileName,ordered_chunks):
+    #--------------------------------------------------------------------------------------
+        '''
+        Reconstruct a file after having downloaded all it'chunks
+        '''
         with open(Path("./myFiles/"+fileName),'ab') as Ofile:
             for num in range(len(ordered_chunks)):
                 with open(Path("./myFiles/"+ordered_chunks[num]+".txt"),'rb') as chunk:
@@ -452,16 +478,18 @@ class Node:
 
            
 
-
+    #--------------------------------------------------------------------------------------
     def downloadFile(self,fileName,linkToOGF):
+    #--------------------------------------------------------------------------------------
         '''
         Downloads all chunks pertaining to a file and reconstructs it locally
         '''
         downloadedChunks=[]
-        chunks = self.fetchChunks(linkToOGF)
+        chunks = self.bNode.filterByFile(linkToOGF)
         ordered_chunks = {}
         downloadThreads=[]
         queue=0
+        check=''
         if chunks != None:
             for chunk in chunks:
                 if queue<3:
@@ -502,11 +530,82 @@ class Node:
                 tries+=1
             #reconstruct after all is downloaded
             self.mergeChunks(fileName,ordered_chunks)
+            if not check[0]:
+                self.DeleteFiles(chunks,hDir=False)
 
 
 
 
-            
+
+
+    #--------------------------------------------------------------------------------------
+    def getHostedFiles(self):
+    #--------------------------------------------------------------------------------------
+        '''
+        Returns a list of all the files hosted locally
+        '''
+        hostedFiles=[]
+        for (dirpath , dirnames , filenames) in walk(Path("./hosted")):
+            for item in filenames:
+                hostedFiles.append(item.split('.')[0])
+        return hostedFiles
+
+    #--------------------------------------------------------------------------------------
+    def DeleteFiles(self,filesList,hDir=True):
+    #--------------------------------------------------------------------------------------
+        '''
+        Delete files that are in the fileList from hosted or myFiles dir
+        '''
+        directory=''
+        files=[]
+        if hDir:
+            files=filesList
+            directory=Path("./hosted")
+        else:
+            #list of chunks not chunk hashes only
+            for chunk in filesList:
+                files.append(chunk['chunkHash'])
+            directory=Path("./myFiles")
+        print('Deleting')
+        for (dirpath , dirnames , filenames) in walk(directory):
+            for item in filenames:
+                if item.split('.')[0] in files:
+                    remove(join(directory,item))
+                    self.logging('Deleted File : {}'.format(item))
+
+    #--------------------------------------------------------------------------------------
+    def cleanHosted(self):
+    #--------------------------------------------------------------------------------------
+        '''
+        Delete files that are no longer valid 
+        '''
+        while True:
+            time.sleep(2*60)
+            print("cleaning")
+            hostedFiles = self.getHostedFiles()
+            print(hostedFiles)
+            if not hostedFiles:
+                continue
+            else:
+                toDelete = self.bNode.filterByRGUID(self.guid, hostedFiles) #hashes
+                print(toDelete)
+                if toDelete:
+                    print('started Deleting')
+                    self.DeleteFiles(toDelete)
+
+    #--------------------------------------------------------------------------------------
+    def startCleaning(self):
+    #--------------------------------------------------------------------------------------
+        '''
+        Start the cleaning thread 
+        '''
+        cleaner = threading.Thread(target=self.cleanHosted,args=[])
+        self.threads['cleaner']=cleaner
+        cleaner.start()
+
+
+    
+    
 
                 
 
@@ -586,11 +685,12 @@ class Node:
         
 
     #--------------------------------------------------------------------------------------
-    def sendChunks(self,filepath):
+    def sendChunks(self,filepath,progressbar):
     #--------------------------------------------------------------------------------------
         '''
         Uploads the file in chunks to the peers on the network
         '''
+        totalSize = math.ceil((stat(filepath).st_size/self.chunkSize))*self.chunkSize
         fileHash = hashlib.sha1() #original file hash
         #fileID = str(uuid.uuid1()).replace('-','') #generate unique random id
         fileID = uuid.uuid1().int
@@ -661,6 +761,8 @@ class Node:
                 receivers.clear()
                 chunk = file.read(chunkSize)
                 order+=1
+                progvalue = (order*100)//(totalSize//self.chunkSize)
+                progressbar.setValue(progvalue)
         fileHash = fileHash.hexdigest()
         #issue file transaction here 
         #-------------------------
@@ -689,28 +791,49 @@ class Node:
 
 
     #========================================================================================
-
+   
+   
+    #--------------------------------------------------------------------------
     def get_key(self,value):
+    #--------------------------------------------------------------------------
         for key, val in self.peers.items():
             if val==value:
                 return key
         return None
 
+    #--------------------------------------------------------------------------
     def save(self):
+    #--------------------------------------------------------------------------
         try:
             Path("./data").mkdir(exist_ok=True)
-            data={
-                'guid':self.guid,
-                'peers':self.peers,
-                'keys':self.keys,
-                'pk':self.bNode.pubKey,
-                'enode':self.bNode.enode}
-            filename=Path("./data/data_peers.txt")
+            data={'guid':self.guid}
+            filename=Path("./data/Node_data.txt")
             file = open(filename,'w') 
             file.write(json.dumps(data))
             file.close()
         except:
-            print("{} could not be created".format(str(filename)))
+            self.logging("** {} could not be created".format(str(filename)))
+
+    #--------------------------------------------------------------------------
+    def loadData(self):
+    #--------------------------------------------------------------------------
+        try:
+            filename=Path("./data/Node_data.txt")
+            if filename.exists():
+                file = open(filename,'r')
+                content = file.read()
+                data = json.loads(content)
+                file.close()
+                # set values for the node
+                self.guid=data['guid']
+
+                return True
+            else:
+                return False
+        except Exception as e:
+            print(e)
+            self.logging("** Unable to load data")
+            return False
 
     #--------------------------------------------------------------------------
     def run(self,command):
