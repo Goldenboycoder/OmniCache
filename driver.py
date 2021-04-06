@@ -58,7 +58,7 @@ OmniCacheApp = QApplication(sys.argv)   #Create Qt Application
 OmniCacheApp.setWindowIcon(QtGui.QIcon('./Images/taskbar_icon.png'))
 
 SplashscreenUI = Ui_splashscreen()      #Create an instance of Splash screen UI
-Loginpage_UI = Ui_Loginpage()
+
 Join_Network_UI = Ui_JoinNetwork()      #Create an instance of Join Network UI
 Settings_UI = Ui_settings()             #Create an instance of Settings UI
 Loadingpage_UI = None
@@ -81,40 +81,61 @@ node = Node("172.29.133.188",4444,bNode, npeer=10)
 Join_Network_UI.join_network_btn.clicked.connect(lambda: Join_Network_UI.join_network_btn_onclick(initNode()))   #Triggering Join network button
 Join_Network_UI.ipaddress_input.returnPressed.connect(lambda: Join_Network_UI.join_network_btn_onclick(initNode()))    #Triggering Join network button (Enter pressed)
 
+Loginpage_UI = Ui_Loginpage()
 
-loginpath = ""
-
+#If user never signed in on the machine
 if not bNode.dataDirsExist():
 
     #Showing Join Network UI after 3s until splash screen is done
     QTimer.singleShot(2000, lambda: Loginpage_UI.showMaximized())
-    Loginpage_UI.create_account_btn.clicked.connect(lambda: Loginpage_UI.showJoinNetwork(initPassPhrase(1)))
-    Loginpage_UI.import_account_btn.clicked.connect(lambda: Loginpage_UI.showJoinNetwork(initPassPhrase(2)))
+    Loginpage_UI.create_account_btn.clicked.connect(lambda: Loginpage_UI.showJoinNetwork(initPassPhrase(1)))    #Triggering create account button
+    Loginpage_UI.import_account_btn.clicked.connect(lambda: Loginpage_UI.showJoinNetwork(initPassPhrase(2)))    #Triggering import account button
+
+#If user is already signed in on the machine
 else:
     if node.loadData():
         #Showing Join Network UI after 3s until splash screen is done
         QTimer.singleShot(2000, lambda: Join_Network_UI.showMaximized())
 
 
+#Login page process
+#-----------------------------------------------------------------------
 def initPassPhrase(loginType):
+#-----------------------------------------------------------------------
     global Loginpage_UI
     global Join_Network_UI
     global node
     global bNode
 
+    #Create an account
     if loginType == 1:
-        passkey = QInputDialog.getText(Loginpage_UI, 'Pass Phrase', 'Enter your passphrase:')
-        node.bNode.passPhrase = passkey[0]
+
+        #passkey = QInputDialog.getText(Loginpage_UI, 'Pass Phrase', 'Enter your passphrase:')    #user password
+        node.bNode.passPhrase = Loginpage_UI.keypass_input.text()
         bNode.createAccount()
+
+        return Join_Network_UI
     
+    #Import an account
     elif loginType == 2:
+
         browseFile = QFileDialog()   # creating a File Dialog
-        keyFilePath = browseFile.getOpenFileName(Loginpage_UI,"Select File","",)   #Receiving a string from the file dialog
-        passkey = QInputDialog.getText(Loginpage_UI, 'Pass Phrase', 'Enter your passphrase:')
-        node.bNode.passPhrase = passkey[0]
-        bNode.importAccount(Path(keyFilePath[0]))
+        keyFilePath, _ = browseFile.getOpenFileName(Loginpage_UI,"Select File","",)   #Receiving a string from the file dialog
+
+        #If user clicks open
+        if keyFilePath != "":
+            Loginpage_UI.file_path_lbl.setText(keyFilePath)
+            passkey = QInputDialog.getText(Loginpage_UI, 'Pass Phrase', 'Enter your KeyPhrase:', QtWidgets.QLineEdit.Password)   #user password
+            node.bNode.passPhrase = passkey[0]
+            bNode.importAccount(Path(keyFilePath))
+
+            return Join_Network_UI
+
+        #If user clicks cancel (Stay on login page)
+        else:
+            return Loginpage_UI
     
-    return Join_Network_UI
+    
 
 #Initiliazing node on Join network click
 #-----------------------------------------------------------------------
@@ -153,4 +174,4 @@ def HomepageListeners():
     Homepage_UI.search_input.textChanged.connect(lambda: Homepage_UI.on_searchTextChanged(Homepage_UI.search_input.text()))             #On text changed in search input
     tray_icon.Homepage_UI = Homepage_UI
 
-OmniCacheApp.exec_() # Executing app
+OmniCacheApp.exec_() #Executing app

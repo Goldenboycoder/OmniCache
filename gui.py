@@ -172,68 +172,127 @@ class Ui_Loginpage(QMainWindow):
     #-----------------------------------------------------------------------
         super().__init__(parent)
         self.setupUi(self)
-        
-
+    
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
-        MainWindow.resize(1211, 869)
-        MainWindow.setStyleSheet("#centralwidget{background-image: url(D:/Uni/Senior Project/OmniCache/Images/joinnetwork_background.jpg)}\n"
+        MainWindow.resize(1377, 870)
+        MainWindow.setStyleSheet("#centralwidget{background-image: url(./Images/joinnetwork_background.jpg)}\n"
                                  "QPushButton{background-color: rgb(0, 168, 243);}"
-                                 "QPushButton::hover{background-color: rgb(30,144,255);}")
+                                 "QPushButton::hover{background-color: rgb(30,144,255);}"
+                                 )
         self.centralwidget = QtWidgets.QWidget(MainWindow)
         self.centralwidget.setObjectName("centralwidget")
-        self.verticalLayout = QtWidgets.QVBoxLayout(self.centralwidget)
-        self.verticalLayout.setObjectName("verticalLayout")
-        spacerItem = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
-        self.verticalLayout.addItem(spacerItem)
-        self.omnicache_logo = QtWidgets.QLabel(self.centralwidget)
-        self.omnicache_logo.setText("")
-        self.omnicache_logo.setPixmap(QtGui.QPixmap("d:\\Uni\\Senior Project\\UI Designs\\../OmniCache/Images/joinnetwork_logo.png"))
-        self.omnicache_logo.setObjectName("omnicache_logo")
-        self.verticalLayout.addWidget(self.omnicache_logo, 0, QtCore.Qt.AlignHCenter|QtCore.Qt.AlignVCenter)
-        spacerItem1 = QtWidgets.QSpacerItem(20, 100, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
-        self.verticalLayout.addItem(spacerItem1)
+        self.horizontalLayout_3 = QtWidgets.QHBoxLayout(self.centralwidget)
+        self.horizontalLayout_3.setObjectName("horizontalLayout_3")
         self.horizontalLayout = QtWidgets.QHBoxLayout()
         self.horizontalLayout.setObjectName("horizontalLayout")
-        spacerItem2 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        spacerItem = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        self.horizontalLayout.addItem(spacerItem)
+        self.omnicache_logo = QtWidgets.QLabel(self.centralwidget)
+        self.omnicache_logo.setText("")
+        self.omnicache_logo.setPixmap(QtGui.QPixmap("./Images/joinnetwork_logo.png"))
+        self.omnicache_logo.setObjectName("omnicache_logo")
+        self.horizontalLayout.addWidget(self.omnicache_logo, 0, QtCore.Qt.AlignHCenter|QtCore.Qt.AlignVCenter)
+        spacerItem1 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        self.horizontalLayout.addItem(spacerItem1)
+        self.verticalline_separator = QtWidgets.QFrame(self.centralwidget)
+        self.verticalline_separator.setFrameShape(QtWidgets.QFrame.VLine)
+        self.verticalline_separator.setFrameShadow(QtWidgets.QFrame.Sunken)
+        self.verticalline_separator.setObjectName("verticalline_separator")
+        self.horizontalLayout.addWidget(self.verticalline_separator)
+        spacerItem2 = QtWidgets.QSpacerItem(100, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
         self.horizontalLayout.addItem(spacerItem2)
+        self.verticalLayout = QtWidgets.QVBoxLayout()
+        self.verticalLayout.setObjectName("verticalLayout")
+        spacerItem3 = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+        self.verticalLayout.addItem(spacerItem3)
+        self.horizontalLayout_2 = QtWidgets.QHBoxLayout()
+        self.horizontalLayout_2.setObjectName("horizontalLayout_2")
+        self.keypass_lbl = QtWidgets.QLabel(self.centralwidget)
+        self.keypass_lbl.setStyleSheet("font: 14pt Proxima Nova;\n"
+                                        "color: rgb(255, 255, 255);")
+        self.keypass_lbl.setObjectName("keypass_lbl")
+        self.horizontalLayout_2.addWidget(self.keypass_lbl, 0, QtCore.Qt.AlignHCenter|QtCore.Qt.AlignVCenter)
+        self.keypass_input = QtWidgets.QLineEdit(self.centralwidget)
+        self.keypass_input.setStyleSheet("font: 10pt Proxima Nova;\n"
+                                        "color: rgb(0, 0, 0);\n"
+                                        "border: 0.5px solid grey;\n"
+                                        "border-radius: 6px;")
+        self.keypass_input.setEchoMode(QtWidgets.QLineEdit.Password)
+        self.keypass_input.setFixedWidth(300)
+        self.keypass_input.setObjectName("keypass_input")
+        self.horizontalLayout_2.addWidget(self.keypass_input, 0, QtCore.Qt.AlignRight|QtCore.Qt.AlignVCenter)
         self.create_account_btn = QtWidgets.QPushButton(self.centralwidget)
         self.create_account_btn.setStyleSheet("font: 10pt Proxima Nova;\n"
-                                              "color: rgb(255, 255, 255);\n"
-                                              "border-radius: 6px;\n"
-                                              "padding: 10px;")
+                                                "color: rgb(255, 255, 255);\n"
+                                                "border-radius: 6px;\n"
+                                                "padding: 10px;")
         self.create_account_btn.setObjectName("create_account_btn")
-        self.horizontalLayout.addWidget(self.create_account_btn, 0, QtCore.Qt.AlignHCenter|QtCore.Qt.AlignVCenter)
-        spacerItem3 = QtWidgets.QSpacerItem(100, 20, QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Minimum)
-        self.horizontalLayout.addItem(spacerItem3)
+        self.horizontalLayout_2.addWidget(self.create_account_btn, 0, QtCore.Qt.AlignHCenter|QtCore.Qt.AlignVCenter)
+        self.verticalLayout.addLayout(self.horizontalLayout_2)
+        spacerItem4 = QtWidgets.QSpacerItem(20, 80, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
+        self.verticalLayout.addItem(spacerItem4)
+        self.horizontalLayout_4 = QtWidgets.QHBoxLayout()
+        self.horizontalLayout_4.setObjectName("horizontalLayout_4")
+        spacerItem5 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        self.horizontalLayout_4.addItem(spacerItem5)
+        self.path_lbl = QtWidgets.QLabel(self.centralwidget)
+        self.path_lbl.setStyleSheet("font: 14pt Proxima Nova;\n"
+                                        "color: rgb(255, 255, 255);")
+        self.path_lbl.setObjectName("path_lbl")
+        self.horizontalLayout_4.addWidget(self.path_lbl, 0, QtCore.Qt.AlignHCenter|QtCore.Qt.AlignVCenter)
+        self.file_path_lbl = QtWidgets.QLineEdit(self.centralwidget)
+        self.file_path_lbl.setStyleSheet("font: 10pt Proxima Nova;\n"
+                                        "color: rgb(0, 0, 0);\n"
+                                        "border: 0.5px solid grey;\n"
+                                        "border-radius: 6px;")
+        self.file_path_lbl.setFixedWidth(300)
+        self.file_path_lbl.setReadOnly(True)
+        self.file_path_lbl.setObjectName("file_path_lbl")
+        self.horizontalLayout_4.addWidget(self.file_path_lbl, 0, QtCore.Qt.AlignRight|QtCore.Qt.AlignVCenter)
         self.import_account_btn = QtWidgets.QPushButton(self.centralwidget)
         self.import_account_btn.setStyleSheet("font: 10pt Proxima Nova;\n"
-                                              "color: rgb(255, 255, 255);\n"
-                                              "border-radius: 6px;\n"
-                                              "padding: 10px;")
+                                                "color: rgb(255, 255, 255);\n"
+                                                "border-radius: 6px;\n"
+                                                "padding: 10px;")
         self.import_account_btn.setObjectName("import_account_btn")
-        self.horizontalLayout.addWidget(self.import_account_btn, 0, QtCore.Qt.AlignHCenter|QtCore.Qt.AlignVCenter)
-        spacerItem4 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
-        self.horizontalLayout.addItem(spacerItem4)
-        self.verticalLayout.addLayout(self.horizontalLayout)
-        spacerItem5 = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
-        self.verticalLayout.addItem(spacerItem5)
+        self.horizontalLayout_4.addWidget(self.import_account_btn, 0, QtCore.Qt.AlignRight|QtCore.Qt.AlignVCenter)
+        self.verticalLayout.addLayout(self.horizontalLayout_4)
+        spacerItem6 = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+        self.verticalLayout.addItem(spacerItem6)
+        self.horizontalLayout.addLayout(self.verticalLayout)
+        spacerItem7 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        self.horizontalLayout.addItem(spacerItem7)
+        self.horizontalLayout_3.addLayout(self.horizontalLayout)
         MainWindow.setCentralWidget(self.centralwidget)
 
         self.retranslateUi(MainWindow)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
-    def showJoinNetwork(self, joinetworkui):
+    
+    #Show Join netowrk after logging in
+    #-----------------------------------------------------------------------
+    def showJoinNetwork(self, ui):
+    #-----------------------------------------------------------------------
 
-        joinetworkui.showMaximized()
-        self.hide()
+        UI_Choice = isinstance(ui, Ui_JoinNetwork)   #checking type of UI
+
+        #if user sent a file path with passkey
+        if UI_Choice:
+            ui.showMaximized()
+            self.hide()
+        #if user cancelled filedDialog, return login page again
+        else:
+            ui.showMaximized()
+            
         
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
         MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow"))
+        self.keypass_lbl.setText(_translate("MainWindow", "Enter KeyPhrase:"))
         self.create_account_btn.setText(_translate("MainWindow", "Create Account"))
+        self.path_lbl.setText(_translate("MainWindow", "KeyFile Path:"))
         self.import_account_btn.setText(_translate("MainWindow", "Import Account"))
-
 
 #============================================================================
 
@@ -370,7 +429,7 @@ class Ui_loadingpage(QMainWindow):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
         MainWindow.resize(1042, 794)
-        MainWindow.setStyleSheet("#centralwidget{background-color: #222222}")
+        MainWindow.setStyleSheet("#centralwidget{background-image: url(./Images/joinnetwork_background.jpg)}")
         self.centralwidget = QtWidgets.QWidget(MainWindow)
         self.centralwidget.setObjectName("centralwidget")
         self.verticalLayout = QtWidgets.QVBoxLayout(self.centralwidget)
@@ -384,7 +443,7 @@ class Ui_loadingpage(QMainWindow):
         spacerItem1 = QtWidgets.QSpacerItem(20, 60, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
         self.verticalLayout.addItem(spacerItem1)
         self.node_ready_lbl = QtWidgets.QLabel(self.centralwidget)
-        self.node_ready_lbl.setStyleSheet("font: 20pt Proxima Nova;\n"
+        self.node_ready_lbl.setStyleSheet("font: 32pt Proxima Nova;\n"
                                           "color: rgb(255, 255, 255);")
         self.node_ready_lbl.setObjectName("node_ready_lbl")
         self.verticalLayout.addWidget(self.node_ready_lbl, 0, QtCore.Qt.AlignHCenter|QtCore.Qt.AlignVCenter)
@@ -392,7 +451,7 @@ class Ui_loadingpage(QMainWindow):
         self.verticalLayout.addItem(spacerItem2)
         MainWindow.setCentralWidget(self.centralwidget)
 
-        self.gif = QMovie("./Images/loading_animation.gif")
+        self.gif = QMovie("./Images/loading_animation_2.gif")
         self.logo_animation.setMovie(self.gif)
         self.gif.start()
 
@@ -413,8 +472,8 @@ class Ui_loadingpage(QMainWindow):
         nodeready.start()
     
     def showHomepage(self):
-
         self.Homepage_UI.showMaximized()
+        self.Homepage_UI.fetchAllFiles()
         self.hide()
 
 
