@@ -55,6 +55,8 @@ class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
 
 OmniCacheApp = QApplication(sys.argv)   #Create Qt Application
 OmniCacheApp.setWindowIcon(QtGui.QIcon('./Images/taskbar_icon.png'))
+QtGui.QFontDatabase.addApplicationFont("./Fonts/ProximaNova-Regular.otf")
+QtGui.QFontDatabase.addApplicationFont("./Fonts/Aquire-BW0ox.otf")
 
 SplashscreenUI = Ui_splashscreen()      #Create an instance of Splash screen UI
 
@@ -194,5 +196,3 @@ def HomepageListeners():
     tray_icon.Homepage_UI = Homepage_UI
 
 OmniCacheApp.exec_() #Executing app
-QtGui.QFontDatabase.addApplicationFont("./Fonts/ProximaNova-Regular.otf")
-QtGui.QFontDatabase.addApplicationFont("./Fonts/Aquire-BW0ox.otf")
