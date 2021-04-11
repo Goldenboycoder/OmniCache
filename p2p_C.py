@@ -63,7 +63,7 @@ class Node:
         self.chunkSize=3704 #multiple of 13 and less then 4096
         self.fileQueue={}
         self.myItems={}
-        self.replicationFactor=2
+        self.replicationFactor=1
         self.threads={}
         self.hold=[]
 

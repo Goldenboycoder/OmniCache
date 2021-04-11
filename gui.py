@@ -41,7 +41,8 @@ class FetchFilesTasks(QtCore.QThread):
         self.listwidget.clear()
         allFiles = self.node.bNode.filterByAddress()   #Dictionnary of files containing details
         for item in allFiles:
-            self.progress.emit((item["fileName"], item["linkToOGF"]))
+            
+            self.progress.emit((item["fileName"], item["linkToOGF"], item["totalSize"]))
 
         #self.finished.emit()
 
@@ -487,11 +488,13 @@ class Ui_loadingpage(QMainWindow):
 class Ui_file_item(QWidget):
 
     #-----------------------------------------------------------------------
-    def __init__(self, node, linktoogf, task):
+    def __init__(self, node, linktoogf, totalSize, task):
     #-----------------------------------------------------------------------
         QWidget.__init__(self)
+        self.isEnabled = True
         self.node = node
         self.linktoogf = linktoogf
+        self.totalSize = totalSize
         self.threads = []      #list of threads for item in list
         self.task = task
         self.setupUi(self)
@@ -620,10 +623,6 @@ class Ui_file_item_disabled(QWidget):
         self.retranslateUi(file_item)
         QtCore.QMetaObject.connectSlotsByName(file_item)
 
-        self.download_btn.clicked.connect(lambda: self.download_btn_onClick(self.node, self.linktoogf))
-        self.delete_btn.clicked.connect(lambda: self.delete_btn_onClick(self.linktoogf))
-
-
     #-----------------------------------------------------------------------
     def retranslateUi(self, file_item):
     #-----------------------------------------------------------------------
@@ -646,6 +645,7 @@ class Ui_homepage(QMainWindow):
         self.setupUi(self)
         self.threads = []
         self.node = node
+        self.customWidgetList = []
 
         #Thread for fetching files on startup
         """ nodeready = NodeReady(self.node)    #Creating a thread
@@ -763,6 +763,7 @@ class Ui_homepage(QMainWindow):
         self.listWidget.setObjectName("listWidget")
         self.verticalLayout.addWidget(self.listWidget)
         self.listWidget.verticalScrollBar().setStyleSheet("QScrollBar:vertical{background:#000000;}")
+        
         self.filedetails_label = QtWidgets.QLabel(self.centralwidget)
         self.filedetails_label.setStyleSheet("font: 14pt \"Proxima Nova\";\n"
                                              "color: rgb(255, 255, 255);")
@@ -840,6 +841,29 @@ class Ui_homepage(QMainWindow):
         self.retranslateUi(MainWindow)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
+        self.listWidget.itemSelectionChanged.connect(lambda: self.on_item_selection_changed())
+        
+
+    def on_item_selection_changed(self):
+
+        selection = self.listWidget.currentIndex()
+        widgetType = isinstance(self.customWidgetList[selection.row()], Ui_file_item)
+        if widgetType:
+            file_name = self.customWidgetList[selection.row()].label.text()
+            totalSize = self.customWidgetList[selection.row()].totalSize
+
+            #File unit converter
+            postFixList = ["KB", "MB", "GB", "TB"]
+            postFix = "B"
+            count = 0
+            while(totalSize >= 1024):
+                postFix = postFixList[count]
+                count += 1
+                totalSize /= 1024
+
+            self.fd_name_label.setText("Name: " + file_name)
+            self.fd_size_label.setText("Size: " + "{:.3f}".format(totalSize) + " " + postFix)
+
     #Search query for listview
     #-----------------------------------------------------------------------
     def on_searchTextChanged(self, search_query):
@@ -876,6 +900,7 @@ class Ui_homepage(QMainWindow):
     def fetchAllFiles(self):
     #-----------------------------------------------------------------------
         self.listWidget.clear()
+        self.customWidgetList.clear()
         fetchfilestask = FetchFilesTasks(self.node, self.listWidget)
         fetchfilestask.progress.connect(self.addItemtoList)
         self.threads.append(fetchfilestask)
@@ -905,6 +930,7 @@ class Ui_homepage(QMainWindow):
             #Adding a dummy file item in list just while uploading
             myQCustomQWidget = Ui_file_item_disabled()
             myQCustomQWidget.label.setText(tail)
+            self.customWidgetList.append(myQCustomQWidget)
             myQListWidgetItem = QListWidgetItem(self.listWidget)
             myQListWidgetItem.setSizeHint(myQCustomQWidget.sizeHint())
             self.listWidget.addItem(myQListWidgetItem)
@@ -917,7 +943,7 @@ class Ui_homepage(QMainWindow):
             uploadtask.start()
 
     #-----------------------------------------------------------------------    
-    def addItemtoList(self, filenameandlinktoogf):
+    def addItemtoList(self, fileinfo):
     #-----------------------------------------------------------------------
         """ Extracting file name from filepath
         ntpath.basename("a/b/c")  
@@ -925,12 +951,13 @@ class Ui_homepage(QMainWindow):
 
 
         # If filedialog open is clicked
-        if filenameandlinktoogf[0] != "":
+        if fileinfo[0] != "":
             #Adding an item to the QListWidget
             fetchfilestask = FetchFilesTasks(self.node, self.listWidget)    #Creating an instance of fetch files task and sending it to each item in the list
             fetchfilestask.progress.connect(self.addItemtoList)   #Adding item to list after fetching files task
-            myQCustomQWidget = Ui_file_item(self.node, filenameandlinktoogf[1], fetchfilestask)
-            myQCustomQWidget.label.setText(filenameandlinktoogf[0])
+            myQCustomQWidget = Ui_file_item(self.node, fileinfo[1], fileinfo[2], fetchfilestask)
+            myQCustomQWidget.label.setText(fileinfo[0])
+            self.customWidgetList.append(myQCustomQWidget)
             myQListWidgetItem = QListWidgetItem(self.listWidget)
             myQListWidgetItem.setSizeHint(myQCustomQWidget.sizeHint())
             self.listWidget.addItem(myQListWidgetItem)
