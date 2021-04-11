@@ -54,8 +54,8 @@ class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
         self.Homepage_UI.show()
 
 OmniCacheApp = QApplication(sys.argv)   #Create Qt Application
-OmniCacheApp.setWindowIcon(QtGui.QIcon('./Images/taskbar_icon.png'))
-QtGui.QFontDatabase.addApplicationFont("./Fonts/ProximaNova-Regular.otf")
+OmniCacheApp.setWindowIcon(QtGui.QIcon('./Images/taskbar_icon.png'))    #Setting Icon for top bar
+QtGui.QFontDatabase.addApplicationFont("./Fonts/ProximaNova-Regular.otf")      #Adding fonts
 QtGui.QFontDatabase.addApplicationFont("./Fonts/Aquire-BW0ox.otf")
 
 SplashscreenUI = Ui_splashscreen()      #Create an instance of Splash screen UI
@@ -113,9 +113,13 @@ def initPassPhrase(loginType):
 
         #passkey = QInputDialog.getText(Loginpage_UI, 'Pass Phrase', 'Enter your passphrase:')    #user password
         node.bNode.passPhrase = Loginpage_UI.keypass_input.text()
-        bNode.createAccount()
+        if Loginpage_UI.keypass_input.text() != "":
 
-        return Join_Network_UI
+            bNode.createAccount()
+            return Join_Network_UI
+        else:
+            #Insert a message dialog
+            return Loginpage_UI
     
     #Import an account
     elif loginType == 2:
@@ -126,16 +130,21 @@ def initPassPhrase(loginType):
         #If user clicks open
         if keyFilePath != "":
             Loginpage_UI.file_path_lbl.setText(keyFilePath)
-            passkey = QInputDialog.getText(Loginpage_UI, 'Pass Phrase', 'Enter your KeyPhrase:', QtWidgets.QLineEdit.Password)   #user password
-            node.bNode.passPhrase = passkey[0]
-            bNode.importAccount(Path(keyFilePath))
+            passkey, ok = QInputDialog.getText(Loginpage_UI, 'Pass Phrase', 'Enter your KeyPhrase:', QtWidgets.QLineEdit.Password)   #user password
+            
+            if ok:      #if passkey dialog is ok
+                node.bNode.passPhrase = passkey[0]
+                bNode.importAccount(Path(keyFilePath))
 
-            return Join_Network_UI
+                return Join_Network_UI
+
+            else:       #if passkey dialog is canceled
+                Loginpage_UI.file_path_lbl.setText("")
+                return Loginpage_UI
 
         #If user clicks cancel (Stay on login page)
         else:
             return Loginpage_UI
-    
     
 
 #Initiliazing node on Join network click

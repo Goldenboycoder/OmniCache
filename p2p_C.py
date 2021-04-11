@@ -65,6 +65,7 @@ class Node:
         self.myItems={}
         self.replicationFactor=2
         self.threads={}
+        self.hold=[]
 
     #================================Protocols===============================================
     
@@ -143,13 +144,14 @@ class Node:
     def ping(self,peercon,data):
         peercon.sendData('ping','pong')
 
-    def upfl(self,peercon,data): # UPFL code :  upload file 
+    def upfl(self,peercon,data): # UPFL code :  upload file
         chunkID=data[0].decode('utf-8')
         print(chunkID)
         #print(pack[1])
         chunk=data[1]
         print('g1')
         chunkHash =  hashlib.sha1(chunk).hexdigest()
+        self.hold.append(chunkHash)
         #save chunk
         if self.saveChunk(chunk,chunkHash):
             print(chunkID," ---ACK")
@@ -160,6 +162,8 @@ class Node:
             tosend=chunkID+'-0'
             peercon.sendData('ackf',tosend)
             self.logging("* Receive file failed : {}")
+
+        self.hold.remove(chunkHash)
         
     def dwfl(self,peercon,data):
         chunkHash = data
@@ -428,18 +432,21 @@ class Node:
                 return False
 
     #--------------------------------------------------------------------------------------
-    def getChunk(self,chunkHash,recvGUID,downloadedChunks,ordered_chunks,number):
+    def getChunk(self,toDownload,chunkHash,recvGUID,downloadedChunks,ordered_chunks,number):
     #--------------------------------------------------------------------------------------
         '''
         Test connection to peer and download the chunk if it's not already downloaded
         '''
-        if (chunkHash not in downloadedChunks) and self.testCon(recvGUID)[0]:
-            if self.downloadChunk(recvGUID,chunkHash):
-                downloadedChunks.append(chunkHash)
-                ordered_chunks[number]=chunkHash
-                print(chunkHash, 'Downloaded')
-            else:
-                print(chunkHash, 'Not Downloaded')
+        if chunkHash not in toDownload:
+            toDownload.append(chunkHash)
+            if (chunkHash not in downloadedChunks) and self.testCon(recvGUID)[0]:
+                if self.downloadChunk(recvGUID,chunkHash):
+                    downloadedChunks.append(chunkHash)
+                    ordered_chunks[number]=chunkHash
+                    print(chunkHash, 'Downloaded')
+                else:
+                    toDownload.remove(chunkHash)
+                    print(chunkHash, 'Not Downloaded')
 
     #--------------------------------------------------------------------------------------
     def chunksMissing(self,linkToOGF,ordered_chunks):
@@ -502,13 +509,15 @@ class Node:
         downloadThreads=[]
         queue=0
         check=''
+        toDownload=[]
         if chunks != None:
             for chunk in chunks:
                 if queue<3:
-                    x=threading.Thread(target=self.getChunk,args=[chunk['chunkHash'],chunk['receiverGUID'],downloadedChunks,ordered_chunks,chunk['chunkNb'],])
+                    x=threading.Thread(target=self.getChunk,args=[toDownload,chunk['chunkHash'],chunk['receiverGUID'],downloadedChunks,ordered_chunks,chunk['chunkNb'],])
                     downloadThreads.append(x)
                     x.start()
                     queue+=1
+                    time.sleep(1)
                 else:
                     for thread in downloadThreads:
                         thread.join()
@@ -599,7 +608,7 @@ class Node:
         Delete files that are no longer valid 
         '''
         while True:
-            time.sleep(10)
+            time.sleep(120)
             print("cleaning")
             hostedFiles = self.getHostedFiles()
             print(hostedFiles)
@@ -609,7 +618,8 @@ class Node:
                 toNotDelete = self.bNode.filterByRGUID(self.guid, hostedFiles) #hashes
                 print(toNotDelete)
                 print('started Deleting')
-                self.DeleteFiles(toNotDelete)
+                if not self.hold:
+                    self.DeleteFiles(toNotDelete)
                 if len(self.getHostedFiles()):
                     self.bNode.requestPayment(len(self.getHostedFiles())*self.chunkSize)
                 print(self.bNode.getOmnies())

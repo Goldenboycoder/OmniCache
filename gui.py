@@ -91,7 +91,7 @@ class DeleteTask(QtCore.QThread):
 class UploadTask(QtCore.QThread):
 
     #Task thread finished event
-    finished = pyqtSignal(object)
+    finished = pyqtSignal()
     progress = pyqtSignal(int)
 
     #-----------------------------------------------------------------------
@@ -108,7 +108,7 @@ class UploadTask(QtCore.QThread):
     #-----------------------------------------------------------------------
 
         filename , linktoogf = self.node.sendChunks(self.filepath, self.progressbar)
-        self.finished.emit((filename , linktoogf))
+        self.finished.emit()
 
 
 #Node ready task
@@ -572,6 +572,68 @@ class Ui_file_item(QWidget):
 
 #============================================================================
 
+#============================================================================
+        
+
+#Item widget for list in homepage
+class Ui_file_item_disabled(QWidget):
+
+    #-----------------------------------------------------------------------
+    def __init__(self):
+    #-----------------------------------------------------------------------
+        QWidget.__init__(self)
+        self.setupUi(self)
+
+         
+
+    #-----------------------------------------------------------------------
+    def setupUi(self, file_item):
+    #-----------------------------------------------------------------------
+        file_item.setObjectName("file_item")
+        file_item.resize(232, 48)
+        self.horizontalLayout = QtWidgets.QHBoxLayout(file_item)
+        self.horizontalLayout.setObjectName("horizontalLayout")
+        self.label = QtWidgets.QLabel(file_item)
+        self.label.setObjectName("label")
+        self.label.setStyleSheet("font: 14pt \"Proxima Nova\";\n"
+                                 "color: rgb(0, 168, 243);")
+        self.horizontalLayout.addWidget(self.label, 0, QtCore.Qt.AlignLeft|QtCore.Qt.AlignVCenter)
+        self.download_btn = QtWidgets.QPushButton(file_item)
+        self.download_btn.setStyleSheet("border: 0")
+        self.download_btn.setText("")
+        icon = QtGui.QIcon()
+        icon.addPixmap(QtGui.QPixmap("./Images/download_button.png"), QtGui.QIcon.Normal, QtGui.QIcon.On)
+        self.download_btn.setIcon(icon)
+        self.download_btn.setObjectName("download_btn")
+        self.horizontalLayout.addWidget(self.download_btn, 0, QtCore.Qt.AlignLeft)
+        self.delete_btn = QtWidgets.QPushButton(file_item)
+        self.delete_btn.setStyleSheet("border:0")
+        self.delete_btn.setText("")
+        icon1 = QtGui.QIcon()
+        icon1.addPixmap(QtGui.QPixmap("./Images/trash_icon.png"), QtGui.QIcon.Normal, QtGui.QIcon.On)
+        self.delete_btn.setIcon(icon1)
+        self.delete_btn.setObjectName("Delete Button")
+        self.horizontalLayout.addWidget(self.delete_btn, 0, QtCore.Qt.AlignLeft|QtCore.Qt.AlignVCenter)
+        spacerItem = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        self.horizontalLayout.addItem(spacerItem)
+
+        self.retranslateUi(file_item)
+        QtCore.QMetaObject.connectSlotsByName(file_item)
+
+        self.download_btn.clicked.connect(lambda: self.download_btn_onClick(self.node, self.linktoogf))
+        self.delete_btn.clicked.connect(lambda: self.delete_btn_onClick(self.linktoogf))
+
+
+    #-----------------------------------------------------------------------
+    def retranslateUi(self, file_item):
+    #-----------------------------------------------------------------------
+        _translate = QtCore.QCoreApplication.translate
+        file_item.setWindowTitle(_translate("file_item", "Form"))
+        self.label.setText(_translate("file_item", "Text Label"))
+
+
+#============================================================================
+
 
 #Homepage UI
 class Ui_homepage(QMainWindow):
@@ -830,21 +892,30 @@ class Ui_homepage(QMainWindow):
         filename = ""
         browseFile = QFileDialog()   # creating a File Dialog
         filename = browseFile.getOpenFileName(self,"Select File","",)   #Receiving a string from the file dialog
+        ntpath.basename("a/b/c")  
+        head, tail = ntpath.split(filename[0])
 
         #if cancel is clicked
         if filename == "":
+
             pass
 
         else:
+
+            #Adding a dummy file item in list just while uploading
+            myQCustomQWidget = Ui_file_item_disabled()
+            myQCustomQWidget.label.setText(tail)
+            myQListWidgetItem = QListWidgetItem(self.listWidget)
+            myQListWidgetItem.setSizeHint(myQCustomQWidget.sizeHint())
+            self.listWidget.addItem(myQListWidgetItem)
+            self.listWidget.setItemWidget(myQListWidgetItem, myQCustomQWidget)
+
+
             uploadtask = UploadTask(self.node, Path(filename[0]), self.progress_bar)    #Creating a thread
-            uploadtask.finished.connect(self.addItemtoList)    #After thread is finished
+            uploadtask.finished.connect(self.fetchAllFiles)    #After thread is finished
             self.threads.append(uploadtask)
             uploadtask.start()
 
-        """ if filename != "":
-            thread = threading.Thread(target= self.node.sendChunks, args=[Path(filename[0]),])
-            thread.start() """
-        
     #-----------------------------------------------------------------------    
     def addItemtoList(self, filenameandlinktoogf):
     #-----------------------------------------------------------------------
