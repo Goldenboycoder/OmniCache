@@ -902,7 +902,7 @@ class Ui_homepage(QMainWindow):
         _translate = QtCore.QCoreApplication.translate
         MainWindow.setWindowTitle(_translate("MainWindow", "OmniCache"))
         self.wallet_label.setText(_translate("MainWindow", "0"))
-        self.hosting_value_label.setText(_translate("MainWindow", "Hosting: 0.000 KB"))
+        self.hosting_value_label.setText(_translate("MainWindow", "Hosting: 0.000 B"))
         self.mystash_label.setText(_translate("MainWindow", "My Stash"))
         self.search_input.setPlaceholderText(_translate("MainWindow", "Search..."))
         self.upload_btn.setText(_translate("MainWindow", "Upload file"))

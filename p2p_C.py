@@ -63,7 +63,7 @@ class Node:
         self.chunkSize=3704 #multiple of 13 and less then 4096
         self.fileQueue={}
         self.myItems={}
-        self.replicationFactor=1
+        self.replicationFactor=2
         self.threads={}
 
     #================================Protocols===============================================
@@ -616,7 +616,7 @@ class Node:
                 omniesLabel.setText(str(self.bNode.getOmnies()))
                 usedSpace = self.getUsedSpace()
                 postFixList = ["KB", "MB", "GB", "TB"]
-                postFix = "KB"
+                postFix = "B"
                 count = 0
                 while(usedSpace >= 1024):
                     postFix = postFixList[count]

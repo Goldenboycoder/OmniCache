@@ -194,3 +194,5 @@ def HomepageListeners():
     tray_icon.Homepage_UI = Homepage_UI
 
 OmniCacheApp.exec_() #Executing app
+QtGui.QFontDatabase.addApplicationFont("./Fonts/ProximaNova-Regular.otf")
+QtGui.QFontDatabase.addApplicationFont("./Fonts/Aquire-BW0ox.otf")
