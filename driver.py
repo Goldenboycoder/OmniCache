@@ -29,7 +29,6 @@ class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
 
         #Created an instance of Join Network UI and Homepage UI
         self.Homepage_UI = None
-        
 
         menu.addSeparator()
         self.setContextMenu(menu)
@@ -146,22 +145,42 @@ def initNode():
     global node
     global bNode
 
-    if node.bNode.exists:
-        passkey = QInputDialog.getText(Loginpage_UI, 'Pass Phrase', 'Enter your passphrase:')
-        node.bNode.passPhrase = passkey[0]
+    if  not node.bNode.exists:
 
-    ip = Join_Network_UI.ipaddress_input.text()
-    port = 4444
-    thread=threading.Thread(target = node.connectionSpawner, args = [], daemon = True)
-    thread.start()
-    tosend='-'.join(["172.29.133.188",str(port)])
-    node.connectAndSend(ip, port,'join', tosend, waitReply=False)
-    Homepage_UI = Ui_homepage(node)    #Creating Homepage UI with node as arg
-    Loadingpage_UI = Ui_loadingpage(node, Homepage_UI)
-    tray_icon.show()
-    HomepageListeners()
+        ip = Join_Network_UI.ipaddress_input.text()
+        port = 4444
+        thread=threading.Thread(target = node.connectionSpawner, args = [], daemon = True)
+        thread.start()
+        tosend='-'.join(["172.29.133.188",str(port)])
+        node.connectAndSend(ip, port,'join', tosend, waitReply=False)
+        Homepage_UI = Ui_homepage(node)    #Creating Homepage UI with node as arg
+        Loadingpage_UI = Ui_loadingpage(node, Homepage_UI)
+        
+        tray_icon.show()
+        HomepageListeners()
 
-    return Loadingpage_UI
+        return Loadingpage_UI
+
+    else:
+
+        if node.loadData():
+
+            passkey = QInputDialog.getText(Loginpage_UI, 'Pass Phrase', 'Enter your passphrase:')
+            node.bNode.passPhrase = passkey[0]
+
+            ip = Join_Network_UI.ipaddress_input.text()
+            port = 4444
+            thread=threading.Thread(target = node.connectionSpawner, args = [], daemon = True)
+            thread.start()
+            tosend='-'.join([str(node.guid),"172.29.133.188",str(port)])
+            node.connectAndSend(ip, port,'rjon', tosend, waitReply=False)
+            Homepage_UI = Ui_homepage(node)    #Creating Homepage UI with node as arg
+            Loadingpage_UI = Ui_loadingpage(node, Homepage_UI)
+            
+            tray_icon.show()
+            HomepageListeners()
+
+            return Loadingpage_UI
 
 #Homepage on click listeners
 #-----------------------------------------------------------------------
@@ -171,7 +190,7 @@ def HomepageListeners():
 
     Homepage_UI.upload_btn.clicked.connect(lambda: Homepage_UI.upload_onclick())                             #Triggering Upload File button in Homepage
     Homepage_UI.settings_btn.clicked.connect(lambda: Homepage_UI.settings_onclick(Settings_UI,Homepage_UI))           #Triggering Settings button and passing Settings UI & Homepage UI as arg
-    Homepage_UI.search_input.textChanged.connect(lambda: Homepage_UI.on_searchTextChanged(Homepage_UI.search_input.text()))             #On text changed in search input
+    Homepage_UI.search_input.textChanged.connect(lambda: Homepage_UI.on_searchTextChanged(Homepage_UI.search_input.text()))            #On text changed in search input
     tray_icon.Homepage_UI = Homepage_UI
 
 OmniCacheApp.exec_() #Executing app

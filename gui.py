@@ -118,10 +118,12 @@ class NodeReady(QtCore.QThread):
     finished = pyqtSignal()
 
     #-----------------------------------------------------------------------
-    def __init__(self, node):
+    def __init__(self, node, omniesLabel, hosting_value_label):
     #-----------------------------------------------------------------------
         QtCore.QThread.__init__(self)
         self.node = node
+        self.omniesLabel = omniesLabel
+        self.hostingLabel = hosting_value_label
 
     #When task thread starts
     #-----------------------------------------------------------------------
@@ -133,15 +135,15 @@ class NodeReady(QtCore.QThread):
         tosend='-'.join([self.node.bNode.pubKey,self.node.bNode.enode])
         self.node.broadcast("adbn",tosend,-1)
         self.node.save()
+        self.node.bNode.checkSyncStatus()
         self.node.bNode.enroll()
-        self.node.startCleaning()
-
+        self.node.startCleaning(self.omniesLabel, self.hostingLabel)
         self.finished.emit()
 
 
 
-
 #=========================================GUIs===================================
+
 
 #Splashscreen UI
 class Ui_splashscreen(QDialog):
@@ -451,7 +453,7 @@ class Ui_loadingpage(QMainWindow):
         self.verticalLayout.addItem(spacerItem2)
         MainWindow.setCentralWidget(self.centralwidget)
 
-        self.gif = QMovie("./Images/loading_animation_2.gif")
+        self.gif = QMovie("./Images/loading_animation.gif")
         self.logo_animation.setMovie(self.gif)
         self.gif.start()
 
@@ -461,12 +463,12 @@ class Ui_loadingpage(QMainWindow):
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
         MainWindow.setWindowTitle(_translate("MainWindow", "OmniCache"))
-        self.node_ready_lbl.setText(_translate("MainWindow", "Readying up node..."))
+        self.node_ready_lbl.setText(_translate("MainWindow", "Initializing Subsystems.."))
 
 
     def readyup(self):
 
-        nodeready = NodeReady(self.node)    #Creating a thread
+        nodeready = NodeReady(self.node, self.Homepage_UI.wallet_label, self.Homepage_UI.hosting_value_label)    #Creating a thread
         nodeready.finished.connect(self.showHomepage)    #After thread is finished
         self.threads.append(nodeready)
         nodeready.start()
@@ -474,6 +476,7 @@ class Ui_loadingpage(QMainWindow):
     def showHomepage(self):
         self.Homepage_UI.showMaximized()
         self.Homepage_UI.fetchAllFiles()
+        self.Homepage_UI.wallet_label.setText(str(self.node.bNode.getOmnies()))
         self.hide()
 
 
@@ -539,7 +542,7 @@ class Ui_file_item(QWidget):
         downloadtask = DownloadTask(node, self.label.text(), linktoogf)    #Creating a thread
         #downloadtask.finished.connect(self.addItemtoList)    #After thread is finished
         self.threads.append(downloadtask)
-        downloadtask.start()       #Start thread
+        downloadtask.start()      #Start thread
 
 
     #File delete button on-click
@@ -862,10 +865,13 @@ class Ui_homepage(QMainWindow):
             self.listWidget.addItem(myQListWidgetItem)
             self.listWidget.setItemWidget(myQListWidgetItem,myQCustomQWidget)
 
+        self.wallet_label.setText(str(self.node.bNode.getOmnies()))
+
     #Handling Close Window Button event in Homepage
     #-----------------------------------------------------------------------
     def closeEvent(self, event):
     #-----------------------------------------------------------------------
+
         #Open dialog box asking to minimize tray or close app
         close = QMessageBox.question(self,"System Tray","Do you want the program to minimize to tray?", QMessageBox.Yes | QMessageBox.No)
 
@@ -876,7 +882,9 @@ class Ui_homepage(QMainWindow):
 
         #If no is clicked
         else:
+            
             event.accept() #App closed
+            self.node.bNode.proc.kill()
             sys.exit()
     
     #If mouse is clicked on the Homepage UI window
@@ -893,8 +901,8 @@ class Ui_homepage(QMainWindow):
     #-----------------------------------------------------------------------
         _translate = QtCore.QCoreApplication.translate
         MainWindow.setWindowTitle(_translate("MainWindow", "OmniCache"))
-        self.wallet_label.setText(_translate("MainWindow", "120"))
-        self.hosting_value_label.setText(_translate("MainWindow", "Hosting: 10 GB"))
+        self.wallet_label.setText(_translate("MainWindow", "0"))
+        self.hosting_value_label.setText(_translate("MainWindow", "Hosting: 0.000 KB"))
         self.mystash_label.setText(_translate("MainWindow", "My Stash"))
         self.search_input.setPlaceholderText(_translate("MainWindow", "Search..."))
         self.upload_btn.setText(_translate("MainWindow", "Upload file"))

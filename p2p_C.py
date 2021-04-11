@@ -47,7 +47,8 @@ class Node:
             'ADBN':self.adbn,#ADBN code add blockchain node after gettting it's PK and Enode
             'RSCM':self.rscm,#RSCM code establish shared secret key with peer
             'PING':self.ping,#PING request to test connection and latency
-            'DWFL':self.dwfl}#DWFL request to download file
+            'DWFL':self.dwfl,#DWFL request to download file
+            'RJON':self.rjon}#RJON request to peers rejoining maybe with different accounts
         
         """ if self.bNode.isGenesis:
             self.lastid=0
@@ -67,6 +68,14 @@ class Node:
 
     #================================Protocols===============================================
     
+    def rjon(self,peercon,data):
+        try:
+            peer=min(self.peers.keys())
+            toforward=self.peers[peer]
+            self.connectAndSend(toforward[0],toforward[1],"rjon",data,pId=peer,waitReply=False)
+            self.logging("Forwarding a {} request to peer id = {}".format("RJON",peer))
+        except Exception as e:
+            print(e)
     
     def join(self,peercon,data): #JOIN code
         ip, port = data.split('-')
@@ -191,7 +200,8 @@ class Node:
         self.generateKeys()
 
         #self.bNode.postRunInit()
-        self.bNode.createGenesisJson(genesisPK)
+        if(not self.bNode.exists):
+            self.bNode.createGenesisJson(genesisPK)
 
         #self.bNode.initBlockchainNode(genesisPK=genesisPK)
 
@@ -380,9 +390,11 @@ class Node:
     #--------------------------------------------------------------------------------------
         try:
             if mine:
-                f= open(Path("./myFiles/"+chunkHash+".txt"),'wb')
+                f= open(Path("./myFiles/"+chunkHash),'wb')
             else:
-                f= open(Path("./hosted/"+chunkHash+".txt"),'wb')
+                f= open(Path("./hosted/"+chunkHash),'wb')
+                #if self.getUsedSpace() >= self.space:
+                    #return False
             f.write(chunk)
             f.close()
             return True
@@ -472,7 +484,7 @@ class Node:
         '''
         with open(Path("./myFiles/"+fileName),'ab') as Ofile:
             for num in range(len(ordered_chunks)):
-                with open(Path("./myFiles/"+ordered_chunks[num]+".txt"),'rb') as chunk:
+                with open(Path("./myFiles/"+ordered_chunks[num]),'rb') as chunk:
                     Ofile.write(chunk.read())
         print("Merged chunks into {}".format(fileName))
 
@@ -547,7 +559,7 @@ class Node:
         hostedFiles=[]
         for (dirpath , dirnames , filenames) in walk(Path("./hosted")):
             for item in filenames:
-                hostedFiles.append(item.split('.')[0])
+                hostedFiles.append(item)
         return hostedFiles
 
     #--------------------------------------------------------------------------------------
@@ -561,55 +573,67 @@ class Node:
         if hDir:
             files=filesList
             directory=Path("./hosted")
+            print('Deleting')
+            for (dirpath , dirnames , filenames) in walk(directory):
+                for item in filenames:
+                    if item not in files:
+                        remove(join(directory,item))
+                        self.logging('Deleted File : {}'.format(item))
         else:
             #list of chunks not chunk hashes only
             for chunk in filesList:
                 files.append(chunk['chunkHash'])
             directory=Path("./myFiles")
-        print('Deleting')
-        for (dirpath , dirnames , filenames) in walk(directory):
-            for item in filenames:
-                if item.split('.')[0] in files:
-                    remove(join(directory,item))
-                    self.logging('Deleted File : {}'.format(item))
+            print('Deleting')
+            for (dirpath , dirnames , filenames) in walk(directory):
+                for item in filenames:
+                    if item in files:
+                        remove(join(directory,item))
+                        self.logging('Deleted File : {}'.format(item))
+        
 
     #--------------------------------------------------------------------------------------
-    def cleanHosted(self):
+    def cleanHosted(self, omniesLabel, dataLabel):
     #--------------------------------------------------------------------------------------
         '''
         Delete files that are no longer valid 
         '''
         while True:
-            time.sleep(2*60)
+            time.sleep(10)
             print("cleaning")
             hostedFiles = self.getHostedFiles()
             print(hostedFiles)
             if not hostedFiles:
                 continue
             else:
-                toDelete = self.bNode.filterByRGUID(self.guid, hostedFiles) #hashes
-                print(toDelete)
-                if toDelete:
-                    print('started Deleting')
-                    self.DeleteFiles(toDelete)
+                toNotDelete = self.bNode.filterByRGUID(self.guid, hostedFiles) #hashes
+                print(toNotDelete)
+                print('started Deleting')
+                self.DeleteFiles(toNotDelete)
+                if len(self.getHostedFiles()):
+                    self.bNode.requestPayment(len(self.getHostedFiles())*self.chunkSize)
+                print(self.bNode.getOmnies())
+                omniesLabel.setText(str(self.bNode.getOmnies()))
+                usedSpace = self.getUsedSpace()
+                postFixList = ["KB", "MB", "GB", "TB"]
+                postFix = "KB"
+                count = 0
+                while(usedSpace >= 1024):
+                    postFix = postFixList[count]
+                    count += 1
+                    usedSpace /= 1024
+
+                dataLabel.setText("Hosting: " + "{:.3f}".format(usedSpace) + " " + postFix)
 
     #--------------------------------------------------------------------------------------
-    def startCleaning(self):
+    def startCleaning(self, omniesLabel, hostingLabel):
     #--------------------------------------------------------------------------------------
         '''
         Start the cleaning thread 
         '''
-        cleaner = threading.Thread(target=self.cleanHosted,args=[])
+        cleaner = threading.Thread(target=self.cleanHosted,args=[omniesLabel, hostingLabel,])
         self.threads['cleaner']=cleaner
         cleaner.start()
-
-
-    
-    
-
-                
-
-
 
 
     #--------------------------------------------------------------------------------------
@@ -620,7 +644,7 @@ class Node:
         '''
         for (dirpath , dirnames , filenames) in walk(Path("./hosted")):
             for item in filenames:
-                if item.split('.')[0]==chunkHash:
+                if item==chunkHash:
                     return item
         return None
 
@@ -685,7 +709,7 @@ class Node:
         
 
     #--------------------------------------------------------------------------------------
-    def sendChunks(self,filepath,progressbar):
+    def sendChunks(self,filepath,progressbar=None):
     #--------------------------------------------------------------------------------------
         '''
         Uploads the file in chunks to the peers on the network
@@ -761,8 +785,9 @@ class Node:
                 receivers.clear()
                 chunk = file.read(chunkSize)
                 order+=1
-                progvalue = (order*100)//(totalSize//self.chunkSize)
-                progressbar.setValue(progvalue)
+                if progressbar:
+                    progvalue = (order*100)//(totalSize//self.chunkSize)
+                    progressbar.setValue(progvalue)
         fileHash = fileHash.hexdigest()
         #issue file transaction here 
         #-------------------------
@@ -952,8 +977,8 @@ class Node:
         function that is used to write to log files
         '''
         try:
-            Path("./logs").mkdir(exist_ok=True)
-            filename=Path("./logs/"+self.startTime.replace(':','-')+".txt")
+            Path("./logs/p2p").mkdir(parents=True,exist_ok=True)
+            filename=Path("./logs/p2p/"+self.startTime.replace(':','-')+".txt")
             file = open(filename,'a') 
             file.write("[{}] : ".format(datetime.datetime.now().strftime("%H:%M:%S"))+error+'\n') 
             file.close()
@@ -1113,8 +1138,8 @@ class PeerConnection:
         function that is use to write to log files
         '''
         try:
-            Path("./logs").mkdir(exist_ok=True)
-            filename=Path("./logs/"+self.start.replace(':','-')+".txt")
+            Path("./logs/p2p").mkdir(parents=True ,exist_ok=True)
+            filename=Path("./logs/p2p/"+self.start.replace(':','-')+".txt")
             file = open(filename,'a') 
             file.write("[{}] : ".format(datetime.datetime.now().strftime("%H:%M:%S"))+error+'\n') 
             file.close()

@@ -3,13 +3,15 @@ import json
 import subprocess
 import sys
 import threading
+import os
+import logging
+
 from pathlib import Path
 from shutil import copy
-from os import path
-from os import listdir
-from web3 import Web3
-from web3 import geth
+from os import path, listdir
+from web3 import Web3, geth
 from web3.middleware import geth_poa_middleware
+from logging.handlers import RotatingFileHandler
 
 class bcNode:
     #-----------------------------------------------------------------------
@@ -22,6 +24,7 @@ class bcNode:
         self.contract = None
         self.exists = False
         self.passPhrase = ''
+        self.proc = None
 
     #-----------------------------------------------------------------------
     def dataDirsExist(self):
@@ -36,7 +39,9 @@ class bcNode:
         print("[Script Output] Running node...")
         #Internal function to run node in a new subprocess
         def runNode(command):
-            subprocess.run(command, creationflags=subprocess.CREATE_NEW_CONSOLE)
+            logpipe = LogPipe()
+            self.proc = subprocess.Popen(command, stdout=logpipe, stderr=logpipe)
+            logpipe.close()
 
         command = 'geth --datadir ./ETH/node --syncmode=full --networkid 15 --cache=2048 --port 30305 --nat extip:{0} --nodiscover'.format(self.ip)
         threading.Thread(target=runNode, args=[command]).start()
@@ -60,9 +65,8 @@ class bcNode:
 
         #Attempt account creation
         #Redirect creation out to logfile
-        #Path("./logs").mkdir(exist_ok=True)
-        Path("./logs/blockchain").mkdir(parents=True,exist_ok=True)
-        with open('./logs/blockchain/accountCreation.txt', "w") as outfile:
+        Path("./logs/blockchain").mkdir(parents=True, exist_ok=True)
+        with open('./logs/blockchain/accinitLog.txt', "w") as outfile:
             init = subprocess.run(command, shell=True, stdout=outfile, stderr=outfile).returncode
 
         #Delete the tmp pass file
@@ -79,7 +83,7 @@ class bcNode:
     #-----------------------------------------------------------------------
         #Importing existing account
         print("[Script Output] Importing account...")
-        Path("./ETH/node/keystore/").mkdir(parents=True,exist_ok=True)
+        Path("./ETH/node/keystore/").mkdir(parents=True, exist_ok=True)
         copy(pathToKey, "./ETH/node/keystore/")
 
         #Create tmp pass file for geth
@@ -95,11 +99,10 @@ class bcNode:
         command = 'geth --unlock "{0}" --password tmpPass'.format(self.pubKey)
         result = subprocess.run(command, shell=True).returncode
         if(result != 0):
-            #print("Invalid passPhrase")
-            return 1   
-        return 0
+            print("[Script Output] Account import failed.")
+            return 0
+        return 1
         
-
     #-----------------------------------------------------------------------
     def createGenesisJson(self, genesisPK):
     #-----------------------------------------------------------------------
@@ -114,13 +117,15 @@ class bcNode:
     def preRunInit(self):
     #-----------------------------------------------------------------------
         #Initialize data directory
+        #Redirect initialization out to logfile
         print("[Script Output] Initializing Node...")
         command = 'geth init --datadir ./ETH/node ./ETH/genesis.json'
-        init = subprocess.run(command, shell=True).returncode
+        with open('logs/blockchain/nodeinitLog.txt', "w") as outfile:
+            init = subprocess.run(command, shell=True,  stdout=outfile, stderr=outfile).returncode
 
-        #If initialization failed then abort
-        if(init != 0):
-            sys.exit("[Script Output] Pre-Initialization failed. Aborting..")
+            #If initialization failed then abort
+            if(init != 0):
+                sys.exit("[Script Output] Pre-Initialization failed. Aborting..")
 
     #-----------------------------------------------------------------------
     def postRunInit(self):
@@ -133,12 +138,12 @@ class bcNode:
         self.pubKey = "0x" + keyFiles[0].split("--")[2]
 
         #Initialize web3
-        print("Connecting to web3..")
+        print("[Script Output] Connecting to web3..")
         while True:
             self.web3 = Web3(Web3.IPCProvider())
             self.web3.middleware_onion.inject(geth_poa_middleware, layer=0)
             if self.web3.isConnected():
-                print("Web3 connected.")
+                print("[Script Output] Web3 connected.")
                 break
 
         #Initialize Enode
@@ -149,16 +154,17 @@ class bcNode:
 
         #Initialize contract
         #Get contract address to interface with
-        contractAddress = input("Contract Address: ")
+        contractAddress = input("[Script Output] Contract Address: ")
 
         #Initialize contract Abi
-        abi = json.loads('[{"inputs":[{"internalType":"uint256","name":"total","type":"uint256"}],"stateMutability":"nonpayable","type":"constructor"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"accountAddress","type":"address"},{"indexed":true,"internalType":"int256","name":"linkToOGF","type":"int256"},{"indexed":false,"internalType":"int256","name":"senderGUID","type":"int256"},{"indexed":true,"internalType":"int256","name":"receiverGUID","type":"int256"},{"indexed":false,"internalType":"string","name":"chunkHash","type":"string"},{"indexed":false,"internalType":"int256","name":"chunkNb","type":"int256"}],"name":"logChunk","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"accountAddress","type":"address"},{"indexed":true,"internalType":"int256","name":"linkToOGF","type":"int256"}],"name":"logDeletion","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"accountAddress","type":"address"},{"indexed":false,"internalType":"int256","name":"linkToOGF","type":"int256"},{"indexed":false,"internalType":"string","name":"fileName","type":"string"},{"indexed":false,"internalType":"string","name":"fileHash","type":"string"},{"indexed":false,"internalType":"int256","name":"totalSize","type":"int256"}],"name":"logFile","type":"event"},{"inputs":[{"internalType":"int256","name":"linkToOGF","type":"int256"}],"name":"deleteFile","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"enroll","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"giveOmnies","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"myBalance","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"owner","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"totalSupply","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"int256","name":"linkToOGF","type":"int256"},{"internalType":"int256","name":"senderGUID","type":"int256"},{"internalType":"int256","name":"receiverGUID","type":"int256"},{"internalType":"string","name":"chunkHash","type":"string"},{"internalType":"int256","name":"chunkNb","type":"int256"}],"name":"uploadChunk","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"int256","name":"linkToOGF","type":"int256"},{"internalType":"string","name":"fileName","type":"string"},{"internalType":"string","name":"fileHash","type":"string"},{"internalType":"int256","name":"totalSize","type":"int256"}],"name":"uploadFile","outputs":[],"stateMutability":"nonpayable","type":"function"}]')
-        
+        abi = json.loads('[{"inputs":[{"internalType":"uint256","name":"total","type":"uint256"}],"stateMutability":"nonpayable","type":"constructor"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"accountAddress","type":"address"},{"indexed":true,"internalType":"uint256","name":"linkToOGF","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"senderGUID","type":"uint256"},{"indexed":true,"internalType":"uint256","name":"receiverGUID","type":"uint256"},{"indexed":false,"internalType":"string","name":"chunkHash","type":"string"},{"indexed":false,"internalType":"uint256","name":"chunkNb","type":"uint256"}],"name":"logChunk","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"accountAddress","type":"address"},{"indexed":true,"internalType":"uint256","name":"linkToOGF","type":"uint256"}],"name":"logDeletion","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"accountAddress","type":"address"},{"indexed":false,"internalType":"uint256","name":"linkToOGF","type":"uint256"},{"indexed":false,"internalType":"string","name":"fileName","type":"string"},{"indexed":false,"internalType":"string","name":"fileHash","type":"string"},{"indexed":false,"internalType":"uint256","name":"totalSize","type":"uint256"}],"name":"logFile","type":"event"},{"inputs":[{"internalType":"uint256","name":"linkToOGF","type":"uint256"}],"name":"deleteFile","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"enroll","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"getEnrolledStatus","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"sizeData","type":"uint256"}],"name":"giveOmnies","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"myBalance","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"owner","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"totalSupply","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"linkToOGF","type":"uint256"},{"internalType":"uint256","name":"senderGUID","type":"uint256"},{"internalType":"uint256","name":"receiverGUID","type":"uint256"},{"internalType":"string","name":"chunkHash","type":"string"},{"internalType":"uint256","name":"chunkNb","type":"uint256"}],"name":"uploadChunk","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"linkToOGF","type":"uint256"},{"internalType":"string","name":"fileName","type":"string"},{"internalType":"string","name":"fileHash","type":"string"},{"internalType":"uint256","name":"totalSize","type":"uint256"}],"name":"uploadFile","outputs":[],"stateMutability":"nonpayable","type":"function"}]')
+
         #Initialize contract object
         self.contract = self.web3.eth.contract(address=contractAddress, abi=abi)
 
         #Initialize Account
         self.web3.eth.defaultAccount = self.web3.eth.accounts[0]
+
         try:
             #Unlock Account
             self.web3.geth.personal.unlock_account(self.web3.eth.accounts[0], self.passPhrase, 0)
@@ -174,7 +180,7 @@ class bcNode:
     #-----------------------------------------------------------------------
         #Add node as peer
         while(not self.web3.geth.admin.add_peer(enode)):
-        	print("Failed adding peer. Retrying..")
+        	print("[Script Output] Failed adding peer. Retrying..")
 
         print("[Script Output] Adding node as blockchain peer...")
 
@@ -184,29 +190,28 @@ class bcNode:
     #-----------------------------------------------------------------------
     def enroll(self):
     #-----------------------------------------------------------------------
+        if(self.isEnrolled()):
+            print("[Script Output] Already enrolled.")
+            return
         
         while True:
-            sync = self.web3.eth.syncing
-            if(sync != False):
-                if(sync['currentBlock'] > sync['highestBlock']-3):
-                    break
-
-        while True:
-            if(self.web3.eth.getBalance(self.pubKey) != 0):
+            if self.web3.eth.getBalance(self.pubKey) != 0 :
                 break
-        
+
+        print("[Script Output] Attempting enroll..")
         try:
             tx_hash = self.contract.functions.enroll().transact()
             tx_receipt = self.web3.eth.waitForTransactionReceipt(tx_hash)
 
             #Check status of enroll transaction
             if(tx_receipt['status'] == 1):
-                print("Omnies Balance: ", self.contract.functions.myBalance().call())
+                print("[Script Output] Omnies Balance: ", self.getOmnies())
             else:
-                print("Error receiving Omnies. Retrying..")
+                print("[Script Output] Failed in receiving Omnies. Retrying..")
                 self.enroll()
         except:
-            print("Already Enrolled")
+            print("[Script Output] Transaction failed. Retrying..")
+            self.enroll()
 
 
     #-----------------------------------------------------------------------
@@ -216,11 +221,18 @@ class bcNode:
         print("[Script Output] Logging File")
 
         #Call upload file
-        tx_hash = self.contract.functions.uploadFile(linkToOGF, fileName, fileHash, totalSize).transact()
-        tx_receipt = self.web3.eth.waitForTransactionReceipt(tx_hash)
+        try:
+            tx_hash = self.contract.functions.uploadFile(linkToOGF, fileName, fileHash, totalSize).transact()
+            tx_receipt = self.web3.eth.waitForTransactionReceipt(tx_hash)
 
-        #Print balance
-        print("Omnies Balance: ", self.contract.functions.myBalance().call())
+            #Check status of enroll transaction
+            if(tx_receipt['status'] == 1):
+                print("[Script Output] Logged file successfully.")
+                print("[Script Output] Omnies Balance: ", self.getOmnies())
+            else:
+                print("[Script Output] Failed in logging file.")
+        except:
+            print("[Script Output] Transaction failed.")
 
     #-----------------------------------------------------------------------
     def logChunkUpload(self, linkToOGF, senderGUID, receiverGUID, chunkHash, chunkNb):
@@ -229,8 +241,17 @@ class bcNode:
         print("[Script Output] Logging chunk number", chunkNb)
 
         #Call upload chunk
-        tx_hash = self.contract.functions.uploadChunk(linkToOGF, senderGUID, receiverGUID, chunkHash, chunkNb).transact()
-        tx_receipt = self.web3.eth.waitForTransactionReceipt(tx_hash)
+        try:
+            tx_hash = self.contract.functions.uploadChunk(linkToOGF, senderGUID, receiverGUID, chunkHash, chunkNb).transact()
+            tx_receipt = self.web3.eth.waitForTransactionReceipt(tx_hash)
+
+            #Check status of enroll transaction
+            if(tx_receipt['status'] == 1):
+                print("[Script Output] Logged chunk successfully.")
+            else:
+                print("[Script Output] Failed in logging chunk.")
+        except:
+            print("[Script Output] Transaction failed.")
 
     #-----------------------------------------------------------------------
     def logDeletion(self, linkToOGF):
@@ -238,9 +259,18 @@ class bcNode:
         #Transact with smart contract that file has been deleted
         print("[Script Output] Logging file deletion")
 
-        #Call upload chunk
-        tx_hash = self.contract.functions.deleteFile(linkToOGF).transact()
-        tx_receipt = self.web3.eth.waitForTransactionReceipt(tx_hash)
+        #Call delete file
+        try:
+            tx_hash = self.contract.functions.deleteFile(linkToOGF).transact()
+            tx_receipt = self.web3.eth.waitForTransactionReceipt(tx_hash)
+
+            #Check status of enroll transaction
+            if(tx_receipt['status'] == 1):
+                print("[Script Output] Logged file deletion successfully.")
+            else:
+                print("[Script Output] Failed in logging deletion.")
+        except:
+            print("[Script Output] Transaction failed.")
 
 
     #-====================================Event Filtering======================================
@@ -288,7 +318,7 @@ class bcNode:
     #-----------------------------------------------------------------------
     def filterByRGUID(self, recvGUID, chunkHashes):
     #-----------------------------------------------------------------------
-        invalidChunksHosted = []
+        validChunksHosted = []
     	#Read logChunk events for the specific recvGUID
         event_filter = self.contract.events.logChunk.createFilter(fromBlock=0, argument_filters={'receiverGUID':recvGUID})
         for event in event_filter.get_all_entries():
@@ -298,16 +328,16 @@ class bcNode:
             #For each chunk returned, check if its currently on host's machine
             print(result[0]['args']['chunkHash'])
             if result[0]['args']['chunkHash'] in chunkHashes:
-                #If yes, check if its invalid
-                if not self.isFileValid(result[0]['args']['linkToOGF']):
-                    #If invalid append to list of invalidChunksHosted
-                    if result[0]['args']['chunkHash'] not in invalidChunksHosted:
-                        invalidChunksHosted.append(result[0]['args']['chunkHash'])
+                #If yes, check if its valid
+                if self.isFileValid(result[0]['args']['linkToOGF']):
+                    #If valid append to list of validChunksHosted
+                    if result[0]['args']['chunkHash'] not in validChunksHosted:
+                        validChunksHosted.append(result[0]['args']['chunkHash'])
                 else:
-                    if result[0]['args']['chunkHash'] in invalidChunksHosted:
-                        invalidChunksHosted.remove(result[0]['args']['chunkHash'])
+                    if result[0]['args']['chunkHash'] in validChunksHosted:
+                        validChunksHosted.remove(result[0]['args']['chunkHash'])
 
-        return invalidChunksHosted
+        return validChunksHosted
 
     #-----------------------------------------------------------------------
     def isFileValid(self, link):
@@ -318,3 +348,73 @@ class bcNode:
             return True
 
         return False
+
+    #-----------------------------------------------------------------------    
+    def requestPayment(self, dataSize):
+    #-----------------------------------------------------------------------
+        #Transact with smart contract that file has been deleted
+        print("[Script Output] Requesting payment..")
+
+        #Call giveOmnies
+        try:
+            tx_hash = self.contract.functions.giveOmnies(dataSize).transact()
+            tx_receipt = self.web3.eth.waitForTransactionReceipt(tx_hash)
+            #Check status of enroll transaction
+            if(tx_receipt['status'] == 1):
+                print("[Script Output] Payment received successfully.")
+            else:
+                print("[Script Output] Failed in requesting payment.")
+        except:
+            print("[Script Output] Transaction failed.")
+
+    #-----------------------------------------------------------------------
+    def getOmnies(self):
+    #-----------------------------------------------------------------------
+        return self.contract.functions.myBalance().call()
+
+    #-----------------------------------------------------------------------
+    def isEnrolled(self):
+    #-----------------------------------------------------------------------
+        return self.contract.functions.getEnrolledStatus().call()
+
+    #-----------------------------------------------------------------------
+    def checkSyncStatus(self):
+    #-----------------------------------------------------------------------
+        while True:
+            print("[Script Output] Waiting for Geth..")
+            print(self.web3.net.peer_count)
+            if self.web3.net.peer_count != 0:
+                print(self.web3.eth.syncing)
+                print(self.web3.eth.block_number())
+                if (not self.web3.eth.syncing) and (self.web3.eth.block_number() != 0):
+                    break
+
+class LogPipe(threading.Thread):
+
+    def __init__(self):
+        #Setup the object with a logger and a loglevel and start the thread
+        threading.Thread.__init__(self)
+        self.daemon = True
+
+        handler=RotatingFileHandler('./logs/blockchain/runLog.txt', maxBytes=8192, backupCount=1)
+        self.logger = logging.getLogger('my_logger')
+        self.logger.setLevel(logging.INFO)
+        self.logger.addHandler(handler)
+
+        self.fdRead, self.fdWrite = os.pipe()
+        self.pipeReader = os.fdopen(self.fdRead)
+        self.start()
+
+    def fileno(self):
+        #Return the write file descriptor of the pipe
+        return self.fdWrite
+
+    def run(self):
+        #Run the thread, logging everything.
+        for line in iter(self.pipeReader.readline, ''):
+            self.logger.info(line.strip('\n'))
+        self.pipeReader.close()
+
+    def close(self):
+        #Close the write end of the pipe.
+        os.close(self.fdWrite)
