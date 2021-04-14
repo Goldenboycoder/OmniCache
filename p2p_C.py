@@ -66,6 +66,7 @@ class Node:
         self.replicationFactor=1
         self.threads={}
         self.hold=[]
+        self.connections={}
 
     #================================Protocols===============================================
     
@@ -163,7 +164,6 @@ class Node:
             peercon.sendData('ackf',tosend)
             self.logging("* Receive file failed : {}")
 
-        self.hold.remove(chunkHash)
         
     def dwfl(self,peercon,data):
         chunkHash = data
@@ -206,7 +206,11 @@ class Node:
         #self.bNode.postRunInit()
         if(not self.bNode.exists):
             self.bNode.createGenesisJson(genesisPK)
-
+            
+        self.ready=True
+        thread = threading.Thread(target=self.heartbeats)
+        thread.start()
+        self.threads['hearts']=thread
         #self.bNode.initBlockchainNode(genesisPK=genesisPK)
 
         #at the end send an add blockchain node to network (ADBN) request
@@ -223,7 +227,7 @@ class Node:
         #time.sleep(20)
         #self.bNode.enroll()
         #time.sleep(6)
-        self.ready=True
+        
         #self.startCleaning()
         """ time.sleep(3)
         if len(self.peers)>1:
@@ -608,18 +612,19 @@ class Node:
         Delete files that are no longer valid 
         '''
         while True:
-            time.sleep(120)
+            time.sleep(2*60)
             print("cleaning")
             hostedFiles = self.getHostedFiles()
-            print(hostedFiles)
+            #print(hostedFiles)
             if not hostedFiles:
                 continue
             else:
                 toNotDelete = self.bNode.filterByRGUID(self.guid, hostedFiles) #hashes
-                print(toNotDelete)
+                #print(toNotDelete)
                 print('started Deleting')
-                if not self.hold:
-                    self.DeleteFiles(toNotDelete)
+                items = list(set(toNotDelete + self.hold)) 
+                self.DeleteFiles(items)
+                self.hold.clear()
                 if len(self.getHostedFiles()):
                     self.bNode.requestPayment(len(self.getHostedFiles())*self.chunkSize)
                 print(self.bNode.getOmnies())
@@ -741,8 +746,8 @@ class Node:
                 chunkID = str(uuid.uuid1()).replace('-','') #generate unique random id
                 #chunk = file.read(chunkSize)
                 chunkHash =  hashlib.sha1(chunk).hexdigest()
-                self.fileQueue[chunkID] = chunkHash #chunkID : chunkHash
-                cHashes.append(chunkHash)
+                #self.fileQueue[chunkID] = chunkHash #chunkID : chunkHash
+                #cHashes.append(chunkHash)
                 fileHash.update(chunk)
                 #upload chunk here
                 #a routing function must be implemented but for now lets randomize it
@@ -773,6 +778,7 @@ class Node:
                         except Exception as e:
                             print(e)
                             print('here')
+                            receivers.remove(peer)
                             continue
                         print('gg')
                         fid , ack = reply.split('-')
@@ -812,7 +818,7 @@ class Node:
         #self.bNode.filterByAddress()
         #self.downloadFile(myfiles[0]['fileName'],myfiles[0]['linkToOGF'])
         #-------------------------
-        self.myItems[basename(filepath)]={fileHash : cHashes}
+        #self.myItems[basename(filepath)]={fileHash : cHashes}
 
         return [basename(filepath),fileID]
 
@@ -930,7 +936,7 @@ class Node:
             peers.sort()
             while True:
                 test = random.randint(1,len(peers)-1)
-                if (peers[test] != self.guid and self.testCon(peers[test])[0]):
+                if (peers[test] != self.guid and self.connections[peers[test]][0]):
                     return peers[test]
                 else:
                     self.logging('** GUID : {} is offline'.format(test))
@@ -939,11 +945,22 @@ class Node:
             while True:
                 #need to not return genesis guid (0)
                 for GUID in self.peers:
-                    if self.testCon(GUID)[0] and GUID!=0:
+                    if self.connections[GUID][0] and GUID!=0:
                         return GUID
                     else:
                         self.logging('** GUID : {} is offline'.format(GUID))
                 time.sleep(2)
+
+    def heartbeats(self):
+        '''
+        Sends HearBeat messages periodically 
+        '''
+        while True:
+            
+            for peer in self.peers:
+                if peer != 0:
+                    self.connections[peer]=self.testCon(peer)
+            time.sleep(60)
 
     #--------------------------------------------------------------------------
     def testCon(self,target):
@@ -1044,7 +1061,10 @@ class Node:
                 peerconn.sendData(msgType,msgData)
             else:
                 peerconn.sendData(msgType,msgData,key=key,fil=file,guid=self.guid)
-            self.logging("Sent {}-{} to peerid : {}".format(msgType,msgData,pId))
+            if msgType=='upfl':
+                self.logging("Sent {} to peerid : {}".format(msgType,pId))
+            else:
+                self.logging("Sent {}-{} to peerid : {}".format(msgType,msgData,pId))
 
             if waitReply:
                 onereply=peerconn.recvdata() #this caters to onereply only
@@ -1202,14 +1222,14 @@ class PeerConnection:
                     shi='[]'.encode('utf-8')
                     self.sock.sendall((msgType+'_'+str(guid)).encode('utf-8')+dash+msg+shi+nonce)
                 else:
-                    print("content : ",msgData)
+                    #print("content : ",msgData)
                     msg,nonce,tag = self.encrypt(key,msgData)
                     dash='-'.encode('utf-8')
                     shi='[]'.encode('utf-8')
-                    print(msg)
-                    print("size : ",sys.getsizeof(msg))
+                    #print(msg)
+                    #print("size : ",sys.getsizeof(msg))
                     self.sock.sendall((msgType+'_'+str(guid)).encode('utf-8')+dash+msg+shi+nonce)
-                    print((msgType+'_'+str(guid)).encode('utf-8')+dash+msg+shi+nonce)
+                    #print((msgType+'_'+str(guid)).encode('utf-8')+dash+msg+shi+nonce)
                     print("total size : ",sys.getsizeof(msgType.encode('utf-8')+dash+msg+dash+nonce))
                     print("sent chunck")
             else:
@@ -1254,7 +1274,7 @@ class PeerConnection:
                             self.sock.settimeout(None)
                             break
 
-                    print("received : ",received)
+                    #print("received : ",received)
                     code,data=received.split('-'.encode('utf-8'),1)
                     code = code.decode('utf-8')
                     if '_' in code:
@@ -1266,7 +1286,7 @@ class PeerConnection:
                     stuff=data.split(shi)
                     msg=self.decrypt(self.Keys[guid],stuff[-1],stuff[0])
                     msg =msg.split('-'.encode('utf-8'),1)
-                    print(msg)
+                    #print(msg)
                     return (code,msg)
                 else:
                     stuff=data.split('[]'.encode('utf-8'))

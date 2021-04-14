@@ -7,7 +7,6 @@ import threading
 from p2p_C import Node
 from blockchain_C import bcNode
 import subprocess
-
 from gui import Ui_JoinNetwork, Ui_homepage,Ui_splashscreen, Ui_settings, Ui_loadingpage, Ui_Loginpage
 
 class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
@@ -133,7 +132,7 @@ def initPassPhrase(loginType):
             passkey, ok = QInputDialog.getText(Loginpage_UI, 'Pass Phrase', 'Enter your KeyPhrase:', QtWidgets.QLineEdit.Password)   #user password
             
             if ok:      #if passkey dialog is ok
-                node.bNode.passPhrase = passkey[0]
+                node.bNode.passPhrase = passkey
                 bNode.importAccount(Path(keyFilePath))
 
                 return Join_Network_UI
@@ -176,7 +175,7 @@ def initNode():
 
         if node.loadData():
 
-            passkey = QInputDialog.getText(Loginpage_UI, 'Pass Phrase', 'Enter your passphrase:')
+            passkey = QInputDialog.getText(Loginpage_UI, 'Pass Phrase', 'Enter your KeyPhrase:', QtWidgets.QLineEdit.Password)
             node.bNode.passPhrase = passkey[0]
 
             ip = Join_Network_UI.ipaddress_input.text()

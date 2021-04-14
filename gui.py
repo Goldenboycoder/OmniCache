@@ -7,7 +7,7 @@ import subprocess
 
 from PyQt5.QtCore import Qt, QObject, QThread, pyqtSignal
 from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtWidgets import QApplication, QWidget, QDialog, QMainWindow, QMessageBox, QLabel, QFileDialog, QDesktopWidget
+from PyQt5.QtWidgets import QApplication, QWidget, QDialog, QMainWindow, QMessageBox, QLabel, QFileDialog, QDesktopWidget, QInputDialog
 from PyQt5.QtWidgets import QDialog, QPushButton, QVBoxLayout, QApplication, QSplashScreen, QGraphicsColorizeEffect,QListWidgetItem
 import ntpath
 
@@ -119,12 +119,13 @@ class NodeReady(QtCore.QThread):
     finished = pyqtSignal()
 
     #-----------------------------------------------------------------------
-    def __init__(self, node, omniesLabel, hosting_value_label):
+    def __init__(self, loadingUI, node, omniesLabel, hosting_value_label):
     #-----------------------------------------------------------------------
         QtCore.QThread.__init__(self)
         self.node = node
         self.omniesLabel = omniesLabel
         self.hostingLabel = hosting_value_label
+        self.loadingUI = loadingUI
 
     #When task thread starts
     #-----------------------------------------------------------------------
@@ -133,6 +134,9 @@ class NodeReady(QtCore.QThread):
         while(not self.node.ready):    #Keep on checking node is ready to fetch files.
             time.sleep(1)
         self.node.bNode.postRunInit()
+        while not self.node.bNode.validatePass():
+            self.node.bNode.passPhrase = input("Incorrect KeyPhrase! Try again: ")
+            
         tosend='-'.join([self.node.bNode.pubKey,self.node.bNode.enode])
         self.node.broadcast("adbn",tosend,-1)
         self.node.save()
@@ -426,6 +430,7 @@ class Ui_loadingpage(QMainWindow):
         self.setupUi(self)
         self.node = node
         self.Homepage_UI = Homepage_UI
+        self.Loadingpage_UI = self
         self.threads = []
         self.readyup()
 
@@ -469,7 +474,7 @@ class Ui_loadingpage(QMainWindow):
 
     def readyup(self):
 
-        nodeready = NodeReady(self.node, self.Homepage_UI.wallet_label, self.Homepage_UI.hosting_value_label)    #Creating a thread
+        nodeready = NodeReady(self.Loadingpage_UI, self.node, self.Homepage_UI.wallet_label, self.Homepage_UI.hosting_value_label)    #Creating a thread
         nodeready.finished.connect(self.showHomepage)    #After thread is finished
         self.threads.append(nodeready)
         nodeready.start()
@@ -675,7 +680,7 @@ class Ui_homepage(QMainWindow):
         self.hp_logo = QtWidgets.QLabel(self.centralwidget)
         self.hp_logo.setText("")
         self.hp_logo.setPixmap(QtGui.QPixmap("./Images/homepage_logo.png"))
-        self.hp_logo.setObjectName("Homepage Logo")
+        self.hp_logo.setObjectName("hp_logo")
         self.horizontalLayout.addWidget(self.hp_logo, 0, QtCore.Qt.AlignVCenter)
         self.verticalLayout_2 = QtWidgets.QVBoxLayout()
         self.verticalLayout_2.setObjectName("verticalLayout_2")
@@ -683,34 +688,34 @@ class Ui_homepage(QMainWindow):
         self.settings_btn.setStyleSheet("border: 0")
         self.settings_btn.setText("")
         icon = QtGui.QIcon()
-        icon.addPixmap(QtGui.QPixmap("./Images/settings_icon.png"),
-                           QtGui.QIcon.Normal, QtGui.QIcon.On)
+        icon.addPixmap(QtGui.QPixmap("./Images/settings_icon.png"), QtGui.QIcon.Normal, QtGui.QIcon.On)
         self.settings_btn.setIcon(icon)
         self.settings_btn.setIconSize(QtCore.QSize(25, 25))
         self.settings_btn.setObjectName("settings_btn")
-        self.verticalLayout_2.addWidget(self.settings_btn, 0, QtCore.Qt.AlignRight | QtCore.Qt.AlignBottom)
+        self.verticalLayout_2.addWidget(self.settings_btn, 0, QtCore.Qt.AlignRight|QtCore.Qt.AlignBottom)
         self.horizontalLayout_9 = QtWidgets.QHBoxLayout()
         self.horizontalLayout_9.setContentsMargins(-1, -1, 0, -1)
         self.horizontalLayout_9.setSpacing(0)
         self.horizontalLayout_9.setObjectName("horizontalLayout_9")
-        spacerItem = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)	
+        spacerItem = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
         self.horizontalLayout_9.addItem(spacerItem)
         self.wallet_label = QtWidgets.QLabel(self.centralwidget)
         self.wallet_label.setStyleSheet("font: 14pt \"Proxima Nova\";\n"
-                                            "color: rgb(255, 255, 255);")
+                                        "color: rgb(255, 255, 255);\n"
+                                        "margin-right:0 px;")
         self.wallet_label.setObjectName("wallet_label")
         self.horizontalLayout_9.addWidget(self.wallet_label, 0, QtCore.Qt.AlignRight|QtCore.Qt.AlignBottom)
         self.wallet_logo = QtWidgets.QLabel(self.centralwidget)
-        self.wallet_logo.setText("")	
-        self.wallet_logo.setPixmap(QtGui.QPixmap("./Images/currency_logo.png"))	
-        self.wallet_logo.setObjectName("Wallet Logo")	
+        self.wallet_logo.setText("")
+        self.wallet_logo.setPixmap(QtGui.QPixmap("./Images/currency_logo.png"))
+        self.wallet_logo.setObjectName("wallet_logo")
         self.horizontalLayout_9.addWidget(self.wallet_logo)
         self.verticalLayout_2.addLayout(self.horizontalLayout_9)
         self.hosting_value_label = QtWidgets.QLabel(self.centralwidget)
         self.hosting_value_label.setStyleSheet("font: 14pt \"Proxima Nova\";\n"
-                                                   "color: rgb(255, 255, 255);")
+                                                "color: rgb(255, 255, 255);")
         self.hosting_value_label.setObjectName("hosting_value_label")
-        self.verticalLayout_2.addWidget(self.hosting_value_label, 0, QtCore.Qt.AlignRight | QtCore.Qt.AlignTop)
+        self.verticalLayout_2.addWidget(self.hosting_value_label, 0, QtCore.Qt.AlignRight|QtCore.Qt.AlignTop)
         self.horizontalLayout.addLayout(self.verticalLayout_2)
         self.verticalLayout.addLayout(self.horizontalLayout)
         self.line = QtWidgets.QFrame(self.centralwidget)
@@ -724,22 +729,21 @@ class Ui_homepage(QMainWindow):
         self.mystash_icon = QtWidgets.QLabel(self.centralwidget)
         self.mystash_icon.setStyleSheet("")
         self.mystash_icon.setText("")
-        self.mystash_icon.setPixmap(
-            QtGui.QPixmap("./Images/mystash.png"))
+        self.mystash_icon.setPixmap(QtGui.QPixmap("./Images/mystash.png"))
         self.mystash_icon.setObjectName("mystash_icon")
-        self.horizontalLayout_2.addWidget(self.mystash_icon, 0, QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+        self.horizontalLayout_2.addWidget(self.mystash_icon, 0, QtCore.Qt.AlignLeft|QtCore.Qt.AlignVCenter)
         self.mystash_label = QtWidgets.QLabel(self.centralwidget)
         self.mystash_label.setStyleSheet("font: 14pt \"Aquire\";\n"
-                                             "color: rgb(255, 255, 255);")
+                                        "color: rgb(255, 255, 255);")
         self.mystash_label.setObjectName("mystash_label")
-        self.horizontalLayout_2.addWidget(self.mystash_label, 0, QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
-        spacerItem = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
-        self.horizontalLayout_2.addItem(spacerItem)
+        self.horizontalLayout_2.addWidget(self.mystash_label, 0, QtCore.Qt.AlignLeft|QtCore.Qt.AlignVCenter)
+        spacerItem1 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        self.horizontalLayout_2.addItem(spacerItem1)
         self.search_icon = QtWidgets.QLabel(self.centralwidget)
         self.search_icon.setText("")
         self.search_icon.setPixmap(QtGui.QPixmap("./Images/search_icon.png"))
         self.search_icon.setObjectName("search_icon")
-        self.horizontalLayout_2.addWidget(self.search_icon, 0, QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
+        self.horizontalLayout_2.addWidget(self.search_icon, 0, QtCore.Qt.AlignRight|QtCore.Qt.AlignVCenter)
         self.search_input = QtWidgets.QLineEdit(self.centralwidget)
         self.search_input.setStyleSheet("font: 10pt \"Proxima Nova\";\n"
                                         "color: rgb(255, 255, 255);\n"
@@ -748,14 +752,15 @@ class Ui_homepage(QMainWindow):
                                         "")
         self.search_input.setText("")
         self.search_input.setObjectName("search_input")
-        self.horizontalLayout_2.addWidget(self.search_input, 0, QtCore.Qt.AlignRight | QtCore.Qt.AlignVCenter)
-        spacerItem1 = QtWidgets.QSpacerItem(30, 20, QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Minimum)
-        self.horizontalLayout_2.addItem(spacerItem1)
+        self.horizontalLayout_2.addWidget(self.search_input, 0, QtCore.Qt.AlignRight|QtCore.Qt.AlignVCenter)
+        spacerItem2 = QtWidgets.QSpacerItem(30, 20, QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Minimum)
+        self.horizontalLayout_2.addItem(spacerItem2)
         self.upload_btn = QtWidgets.QPushButton(self.centralwidget)
         self.upload_btn.setStyleSheet("font: 10pt \"Proxima Nova\";\n"
-                                          "color: rgb(255, 255, 255);\n"
-                                          "border-radius: 6px;\n"
-                                          "padding:3px;")
+                                        "background-color: rgb(0, 168, 243);\n"
+                                        "color: rgb(255, 255, 255);\n"
+                                        "border-radius: 6px;\n"
+                                        "padding:3px;")
         self.upload_btn.setObjectName("upload_btn")
         self.horizontalLayout_2.addWidget(self.upload_btn, 0, QtCore.Qt.AlignRight)
         self.verticalLayout.addLayout(self.horizontalLayout_2)
@@ -763,10 +768,9 @@ class Ui_homepage(QMainWindow):
         self.listWidget.setObjectName("listWidget")
         self.verticalLayout.addWidget(self.listWidget)
         self.listWidget.verticalScrollBar().setStyleSheet("QScrollBar:vertical{background:#000000;}")
-        
         self.filedetails_label = QtWidgets.QLabel(self.centralwidget)
         self.filedetails_label.setStyleSheet("font: 14pt \"Proxima Nova\";\n"
-                                             "color: rgb(255, 255, 255);")
+                                                "color: rgb(255, 255, 255);")
         self.filedetails_label.setObjectName("filedetails_label")
         self.verticalLayout.addWidget(self.filedetails_label)
         self.horizontalLayout_8 = QtWidgets.QHBoxLayout()
@@ -774,63 +778,36 @@ class Ui_homepage(QMainWindow):
         self.progress_label = QtWidgets.QLabel(self.centralwidget)
         self.progress_label.setMouseTracking(False)
         self.progress_label.setStyleSheet("font: 10pt \"Proxima Nova\";\n"
-                                          "color: rgb(255, 255, 255);")
+                                        "color: rgb(255, 255, 255);")
         self.progress_label.setObjectName("progress_label")
         self.horizontalLayout_8.addWidget(self.progress_label)
         self.progress_bar = QtWidgets.QProgressBar(self.centralwidget)
-        self.progress_bar.setStyleSheet(
-                                        "font: 10pt \"Proxima Nova\";\n"
-                                        "color: rgb(255, 255, 255);"          
-                                        )
-
+        self.progress_bar.setStyleSheet("font: 10pt \"Proxima Nova\";\n"
+                                        "color: rgb(255, 255, 255);")
         self.progress_bar.setProperty("value", 0)
         self.progress_bar.setOrientation(QtCore.Qt.Horizontal)
         self.progress_bar.setObjectName("progress_bar")
         self.horizontalLayout_8.addWidget(self.progress_bar)
         self.verticalLayout.addLayout(self.horizontalLayout_8)
-        spacerItem2 = QtWidgets.QSpacerItem(20, 10, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
-        self.verticalLayout.addItem(spacerItem2)
+        spacerItem3 = QtWidgets.QSpacerItem(20, 10, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Fixed)
+        self.verticalLayout.addItem(spacerItem3)
         self.horizontalLayout_3 = QtWidgets.QHBoxLayout()
         self.horizontalLayout_3.setObjectName("horizontalLayout_3")
         self.fd_name_label = QtWidgets.QLabel(self.centralwidget)
         self.fd_name_label.setMouseTracking(False)
-        self.fd_name_label.setStyleSheet("font: 10pt \"Proxima Nova\";\n"
-                                             "color: rgb(255, 255, 255);")
+        self.fd_name_label.setStyleSheet("font: 12pt \"Proxima Nova\";\n"
+                                        "color: rgb(255, 255, 255);")
         self.fd_name_label.setObjectName("fd_name_label")
         self.horizontalLayout_3.addWidget(self.fd_name_label)
-        self.fd_speed_label = QtWidgets.QLabel(self.centralwidget)
-        self.fd_speed_label.setMouseTracking(False)
-        self.fd_speed_label.setStyleSheet("font: 10pt \"Proxima Nova\";\n"
-                                          "color: rgb(255, 255, 255);")
-        self.fd_speed_label.setObjectName("fd_speed_label")
-        self.horizontalLayout_3.addWidget(self.fd_speed_label)
-        self.fd_eta_label = QtWidgets.QLabel(self.centralwidget)
-        self.fd_eta_label.setMouseTracking(False)
-        self.fd_eta_label.setStyleSheet("font: 10pt \"Proxima Nova\";\n"
-                                            "color: rgb(255, 255, 255);")
-        self.fd_eta_label.setObjectName("fd_eta_label")
-        self.horizontalLayout_3.addWidget(self.fd_eta_label)
         self.verticalLayout.addLayout(self.horizontalLayout_3)
         self.horizontalLayout_6 = QtWidgets.QHBoxLayout()
         self.horizontalLayout_6.setObjectName("horizontalLayout_6")
         self.fd_size_label = QtWidgets.QLabel(self.centralwidget)
         self.fd_size_label.setMouseTracking(False)
-        self.fd_size_label.setStyleSheet("font: 10pt \"Proxima Nova\";\n"
-                                         "color: rgb(255, 255, 255);")
+        self.fd_size_label.setStyleSheet("font: 12pt \"Proxima Nova\";\n"
+                                        "color: rgb(255, 255, 255);")
         self.fd_size_label.setObjectName("fd_size_label")
         self.horizontalLayout_6.addWidget(self.fd_size_label)
-        self.fd_downloaded_label = QtWidgets.QLabel(self.centralwidget)
-        self.fd_downloaded_label.setMouseTracking(False)
-        self.fd_downloaded_label.setStyleSheet("font: 10pt \"Proxima Nova\";\n"
-                                               "color: rgb(255, 255, 255);")
-        self.fd_downloaded_label.setObjectName("fd_downloaded_label")
-        self.horizontalLayout_6.addWidget(self.fd_downloaded_label)
-        self.fd_peers_label = QtWidgets.QLabel(self.centralwidget)
-        self.fd_peers_label.setMouseTracking(False)
-        self.fd_peers_label.setStyleSheet("font: 10pt \"Proxima Nova\";\n"
-                                          "color: rgb(255, 255, 255);")
-        self.fd_peers_label.setObjectName("fd_peers_label")
-        self.horizontalLayout_6.addWidget(self.fd_peers_label)
         self.verticalLayout.addLayout(self.horizontalLayout_6)
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QtWidgets.QMenuBar(MainWindow)
@@ -921,7 +898,7 @@ class Ui_homepage(QMainWindow):
         head, tail = ntpath.split(filename[0])
 
         #if cancel is clicked
-        if filename == "":
+        if filename[0] == "":
 
             pass
 
@@ -998,7 +975,7 @@ class Ui_homepage(QMainWindow):
     def retranslateUi(self, MainWindow):
     #-----------------------------------------------------------------------
         _translate = QtCore.QCoreApplication.translate
-        MainWindow.setWindowTitle(_translate("MainWindow", "OmniCache"))
+        MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow"))
         self.wallet_label.setText(_translate("MainWindow", "0"))
         self.hosting_value_label.setText(_translate("MainWindow", "Hosting: 0.000 B"))
         self.mystash_label.setText(_translate("MainWindow", "My Stash"))
@@ -1008,11 +985,7 @@ class Ui_homepage(QMainWindow):
         self.progress_label.setText(_translate("MainWindow", "Progress:"))
         self.progress_bar.setFormat(_translate("MainWindow", "%p%"))
         self.fd_name_label.setText(_translate("MainWindow", "Name:"))
-        self.fd_speed_label.setText(_translate("MainWindow", "Download/Upload Speed:"))
-        self.fd_eta_label.setText(_translate("MainWindow", "ETA:"))
         self.fd_size_label.setText(_translate("MainWindow", "Size:"))
-        self.fd_downloaded_label.setText(_translate("MainWindow", "Downloaded:"))
-        self.fd_peers_label.setText(_translate("MainWindow", "Number of Peers:"))
 
 
 #============================================================================

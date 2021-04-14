@@ -91,17 +91,17 @@ class bcNode:
         tmpFile.write(self.passPhrase)
         tmpFile.close()
 
-        #Read public keys
-        keyFiles = [filename for filename in listdir('./ETH/node/keystore/') if filename.startswith("UTC")]
-        #Set PubKey
-        self.pubKey = "0x" + keyFiles[0].split("--")[2]
+        # #Read public keys
+        # keyFiles = [filename for filename in listdir('./ETH/node/keystore/') if filename.startswith("UTC")]
+        # #Set PubKey
+        # self.pubKey = "0x" + keyFiles[0].split("--")[2]
 
-        command = 'geth --unlock "{0}" --password tmpPass'.format(self.pubKey)
-        result = subprocess.run(command, shell=True).returncode
-        if(result != 0):
-            print("[Script Output] Account import failed.")
-            return 0
-        return 1
+        # command = 'geth --unlock "{0}" --password tmpPass'.format(self.pubKey)
+        # result = subprocess.run(command, shell=True).returncode
+        # if(result != 0):
+        #     print("[Script Output] Account import failed.")
+        #     return 0
+        # return 1
         
     #-----------------------------------------------------------------------
     def createGenesisJson(self, genesisPK):
@@ -165,6 +165,10 @@ class bcNode:
         #Initialize Account
         self.web3.eth.defaultAccount = self.web3.eth.accounts[0]
 
+    
+    #-----------------------------------------------------------------------
+    def validatePass(self):
+    #-----------------------------------------------------------------------
         try:
             #Unlock Account
             self.web3.geth.personal.unlock_account(self.web3.eth.accounts[0], self.passPhrase, 0)
@@ -172,6 +176,7 @@ class bcNode:
             self.passPhrase = ''
             return True
         except:
+            print("Failed to unlock account");
             #Invalidate PassPhrase
             return False
 
