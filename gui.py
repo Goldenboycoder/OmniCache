@@ -4,13 +4,12 @@ import datetime
 from pathlib import Path
 import time
 import subprocess
-
 from PyQt5.QtCore import Qt, QObject, QThread, pyqtSignal
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtWidgets import QApplication, QWidget, QDialog, QMainWindow, QMessageBox, QLabel, QFileDialog, QDesktopWidget, QInputDialog
 from PyQt5.QtWidgets import QDialog, QPushButton, QVBoxLayout, QApplication, QSplashScreen, QGraphicsColorizeEffect,QListWidgetItem
 import ntpath
-
+import shutil
 from p2p_C import Node
 from blockchain_C import bcNode
 import sys
@@ -65,7 +64,7 @@ class DownloadTask(QtCore.QThread):
     def run(self):
     #-----------------------------------------------------------------------
         self.node.downloadFile(self.filename, self.linktoogf)
-        #self.finished.emit()
+        self.finished.emit(self.filename)
 
 #Delete Task
 class DeleteTask(QtCore.QThread):
@@ -144,7 +143,6 @@ class NodeReady(QtCore.QThread):
         self.node.bNode.enroll()
         self.node.startCleaning(self.omniesLabel, self.hostingLabel)
         self.finished.emit()
-
 
 
 #=========================================GUIs===================================
@@ -295,7 +293,7 @@ class Ui_Loginpage(QMainWindow):
         
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
-        MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow"))
+        MainWindow.setWindowTitle(_translate("MainWindow", "OmniCache"))
         self.keypass_lbl.setText(_translate("MainWindow", "Enter KeyPhrase:"))
         self.create_account_btn.setText(_translate("MainWindow", "Create Account"))
         self.path_lbl.setText(_translate("MainWindow", "KeyFile Path:"))
@@ -503,8 +501,7 @@ class Ui_file_item(QWidget):
         self.threads = []      #list of threads for item in list
         self.task = task
         self.setupUi(self)
-
-         
+ 
 
     #-----------------------------------------------------------------------
     def setupUi(self, file_item):
@@ -548,9 +545,20 @@ class Ui_file_item(QWidget):
     def download_btn_onClick(self, node, linktoogf):
     #-----------------------------------------------------------------------  
         downloadtask = DownloadTask(node, self.label.text(), linktoogf)    #Creating a thread
-        #downloadtask.finished.connect(self.addItemtoList)    #After thread is finished
+        downloadtask.finished.connect(self.showdialog)    #After thread is finished
         self.threads.append(downloadtask)
         downloadtask.start()      #Start thread
+
+    #Show Dialog Information
+    #-----------------------------------------------------------------------
+    def showdialog(self, filename):
+        msg = QMessageBox()
+        msg.setIcon(QMessageBox.Information)
+
+        msg.setText(filename + " downloaded successfully.")
+        msg.setWindowTitle("Information")
+        msg.setStandardButtons(QMessageBox.Ok)
+        msg.exec_()
 
 
     #File delete button on-click
@@ -561,6 +569,7 @@ class Ui_file_item(QWidget):
         deletetask.finished.connect(self.runfetchtask)    #After delete thread is finished, running fetching files task
         self.threads.append(deletetask)
         deletetask.start()       #Start thread
+
 
     #Fetching files and adding to list
     #-----------------------------------------------------------------------
@@ -591,7 +600,6 @@ class Ui_file_item_disabled(QWidget):
     #-----------------------------------------------------------------------
         QWidget.__init__(self)
         self.setupUi(self)
-
          
 
     #-----------------------------------------------------------------------
@@ -841,6 +849,7 @@ class Ui_homepage(QMainWindow):
             self.fd_name_label.setText("Name: " + file_name)
             self.fd_size_label.setText("Size: " + "{:.3f}".format(totalSize) + " " + postFix)
 
+    
     #Search query for listview
     #-----------------------------------------------------------------------
     def on_searchTextChanged(self, search_query):
@@ -922,17 +931,12 @@ class Ui_homepage(QMainWindow):
     #-----------------------------------------------------------------------    
     def addItemtoList(self, fileinfo):
     #-----------------------------------------------------------------------
-        """ Extracting file name from filepath
-        ntpath.basename("a/b/c")  
-        head, tail = ntpath.split(filename[0]) """
-
-
         # If filedialog open is clicked
         if fileinfo[0] != "":
             #Adding an item to the QListWidget
             fetchfilestask = FetchFilesTasks(self.node, self.listWidget)    #Creating an instance of fetch files task and sending it to each item in the list
             fetchfilestask.progress.connect(self.addItemtoList)   #Adding item to list after fetching files task
-            myQCustomQWidget = Ui_file_item(self.node, fileinfo[1], fileinfo[2], fetchfilestask)
+            myQCustomQWidget = Ui_file_item(self.node, fileinfo[1], fileinfo[2], fetchfilestask)    #Creating a file item widget params(ogf,totalsize, fetchfiles task(after each item))
             myQCustomQWidget.label.setText(fileinfo[0])
             self.customWidgetList.append(myQCustomQWidget)
             myQListWidgetItem = QListWidgetItem(self.listWidget)
@@ -975,7 +979,7 @@ class Ui_homepage(QMainWindow):
     def retranslateUi(self, MainWindow):
     #-----------------------------------------------------------------------
         _translate = QtCore.QCoreApplication.translate
-        MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow"))
+        MainWindow.setWindowTitle(_translate("MainWindow", "OmniCache"))
         self.wallet_label.setText(_translate("MainWindow", "0"))
         self.hosting_value_label.setText(_translate("MainWindow", "Hosting: 0.000 B"))
         self.mystash_label.setText(_translate("MainWindow", "My Stash"))
@@ -990,14 +994,15 @@ class Ui_homepage(QMainWindow):
 
 #============================================================================
 
-
+#Settins UI
 class Ui_settings(QMainWindow):
 
     #Setup UI for the initial function
     #-----------------------------------------------------------------------
-    def __init__(self, parent=None):
+    def __init__(self, node, parent=None):
     #-----------------------------------------------------------------------
         super(Ui_settings, self).__init__(parent)
+        self.node = node
         self.setupUi(self)
         
     #-----------------------------------------------------------------------
@@ -1018,7 +1023,6 @@ class Ui_settings(QMainWindow):
         qr.moveCenter(cp)
         self.move(qr.topLeft())
 
-
         self.centralwidget = QtWidgets.QWidget(MainWindow)
         self.centralwidget.setStyleSheet("border-radius:40px;")
         self.centralwidget.setObjectName("centralwidget")
@@ -1026,29 +1030,42 @@ class Ui_settings(QMainWindow):
         self.verticalLayout.setObjectName("verticalLayout")
         self.label = QtWidgets.QLabel(self.centralwidget)
         self.label.setStyleSheet("font: 20pt \"Proxima Nova\";\n"
-                                    "color: rgb(255, 255, 255);\n"
-                                    "margin-top: 20px;")
+                                "color: rgb(255, 255, 255);\n"
+                                "margin-top: 20px;")
         self.label.setObjectName("label")
         self.verticalLayout.addWidget(self.label, 0, QtCore.Qt.AlignHCenter|QtCore.Qt.AlignTop)
         spacerItem = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
         self.verticalLayout.addItem(spacerItem)
-        self.pushButton = QtWidgets.QPushButton(self.centralwidget)
-        self.pushButton.setStyleSheet("font: 10pt \"Proxima Nova\";\n"
-                                    "color: rgb(255, 255, 255);\n"
-                                    "border-radius: 6px;\n"
-                                    "padding: 10px;\n"
-                                    "width:150px;")
-        self.pushButton.setObjectName("pushButton")
-        self.verticalLayout.addWidget(self.pushButton, 0, QtCore.Qt.AlignHCenter|QtCore.Qt.AlignTop)
-        self.pushButton_2 = QtWidgets.QPushButton(self.centralwidget)
-        self.pushButton_2.setStyleSheet("font: 10pt \"Proxima Nova\";\n"
+        self.horizontalLayout = QtWidgets.QHBoxLayout()
+        self.horizontalLayout.setObjectName("horizontalLayout")
+        spacerItem1 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        self.horizontalLayout.addItem(spacerItem1)
+        self.replication_lbl = QtWidgets.QLabel(self.centralwidget)
+        self.replication_lbl.setStyleSheet("font: 14pt Proxima Nova;\n"
+                                            "color: rgb(255, 255, 255);")
+        self.replication_lbl.setObjectName("replication_lbl")
+        self.horizontalLayout.addWidget(self.replication_lbl, 0, QtCore.Qt.AlignRight)
+        self.replication_dropdown = QtWidgets.QComboBox(self.centralwidget)
+        self.replication_dropdown.setStyleSheet("font: 10pt Proxima Nova;\n"
+                                                "border: 0.5px solid grey;\\n\"\n"
+                                                "border-radius: 6px;"
+                                                "width:15px;")
+        """ self.replication_dropdown.setFixed(40) """
+        self.replication_dropdown.addItems(["1","2","3"])
+        self.replication_dropdown.setObjectName("comboBox")
+        self.horizontalLayout.addWidget(self.replication_dropdown, 0, QtCore.Qt.AlignLeft)
+        spacerItem2 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
+        self.horizontalLayout.addItem(spacerItem2)
+        self.verticalLayout.addLayout(self.horizontalLayout)
+        self.export_btn = QtWidgets.QPushButton(self.centralwidget)
+        self.export_btn.setStyleSheet("font: 10pt \"Proxima Nova\";\n"
                                         "color: rgb(255, 255, 255);\n"
                                         "border-radius: 6px;\n"
                                         "padding: 10px;\n"
                                         "margin-top:10px;\n"
                                         "width:150px;")
-        self.pushButton_2.setObjectName("pushButton_2")
-        self.verticalLayout.addWidget(self.pushButton_2, 0, QtCore.Qt.AlignHCenter|QtCore.Qt.AlignTop)
+        self.export_btn.setObjectName("export_btn")
+        self.verticalLayout.addWidget(self.export_btn, 0, QtCore.Qt.AlignHCenter|QtCore.Qt.AlignTop)
         self.pushButton_3 = QtWidgets.QPushButton(self.centralwidget)
         self.pushButton_3.setStyleSheet("font: 10pt \"Proxima Nova\";\n"
                                         "color: rgb(255, 255, 255);\n"
@@ -1067,12 +1084,47 @@ class Ui_settings(QMainWindow):
                                         "width:150px;")
         self.pushButton_4.setObjectName("pushButton_4")
         self.verticalLayout.addWidget(self.pushButton_4, 0, QtCore.Qt.AlignHCenter)
-        spacerItem1 = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
-        self.verticalLayout.addItem(spacerItem1)
+        spacerItem3 = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+        self.verticalLayout.addItem(spacerItem3)
         MainWindow.setCentralWidget(self.centralwidget)
 
         self.retranslateUi(MainWindow)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
+
+        self.replication_dropdown.activated[str].connect(self.on_replication_changed)
+
+        self.export_btn.clicked.connect(self.export_onclick)
+
+    #On replication factor dropdown change
+    #-----------------------------------------------------------------------
+    def on_replication_changed(self, replicationText):
+    #-----------------------------------------------------------------------
+
+        if replicationText == "1":
+            self.node.replicationFactor = 1
+            print(self.node.replicationFactor)
+
+        elif replicationText == "2":
+            self.node.replicationFactor = 2
+            print(self.node.replicationFactor)
+        else:
+            self.node.replicationFactor = 3
+            print(self.node.replicationFactor)
+    #On export click
+    #-----------------------------------------------------------------------
+    def export_onclick(self):
+    #-----------------------------------------------------------------------
+
+        source = r'./ETH/node/keystore'
+        browseFile = QFileDialog()   # creating a File Dialog
+        destination = browseFile.getExistingDirectory(self,"Select Destination","",)   #Receiving a string from the file dialog
+
+        if destination == "":
+            pass
+
+        else:
+            print(destination)
+            shutil.copytree(source, destination, dirs_exist_ok=True)
 
 
     #Renaming Labels, LineEdits, Buttons
@@ -1080,9 +1132,9 @@ class Ui_settings(QMainWindow):
     def retranslateUi(self, MainWindow):
     #-----------------------------------------------------------------------
         _translate = QtCore.QCoreApplication.translate
-        MainWindow.setWindowTitle(_translate("MainWindow", "Settings"))
+        MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow"))
         self.label.setText(_translate("MainWindow", "Settings"))
-        self.pushButton.setText(_translate("MainWindow", "Test 1"))
-        self.pushButton_2.setText(_translate("MainWindow", "Test 2"))
-        self.pushButton_3.setText(_translate("MainWindow", "Test 3"))
-        self.pushButton_4.setText(_translate("MainWindow", "Test 4"))
+        self.replication_lbl.setText(_translate("MainWindow", "Replication Factor"))
+        self.export_btn.setText(_translate("MainWindow", "Export Account"))
+        self.pushButton_3.setText(_translate("MainWindow", "PushButton"))
+        self.pushButton_4.setText(_translate("MainWindow", "PushButton"))

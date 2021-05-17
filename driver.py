@@ -10,9 +10,6 @@ import subprocess
 from gui import Ui_JoinNetwork, Ui_homepage,Ui_splashscreen, Ui_settings, Ui_loadingpage, Ui_Loginpage
 
 class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
-    """
-    CREATE A SYSTEM TRAY ICON CLASS AND ADD MENU
-    """
     #-----------------------------------------------------------------------
     def __init__(self, icon, parent=None):
     #-----------------------------------------------------------------------
@@ -60,7 +57,7 @@ QtGui.QFontDatabase.addApplicationFont("./Fonts/Aquire-BW0ox.otf")
 SplashscreenUI = Ui_splashscreen()      #Create an instance of Splash screen UI
 
 Join_Network_UI = Ui_JoinNetwork()      #Create an instance of Join Network UI
-Settings_UI = Ui_settings()             #Create an instance of Settings UI
+Settings_UI = None             #Create an instance of Settings UI
 Loadingpage_UI = None
 Homepage_UI = None
 
@@ -150,8 +147,9 @@ def initPassPhrase(loginType):
 #-----------------------------------------------------------------------
 def initNode():
 #-----------------------------------------------------------------------
-    global Homepage_UI
     global Loadingpage_UI
+    global Homepage_UI
+    global Settings_UI
     global node
     global bNode
 
@@ -165,6 +163,7 @@ def initNode():
         node.connectAndSend(ip, port,'join', tosend, waitReply=False)
         Homepage_UI = Ui_homepage(node)    #Creating Homepage UI with node as arg
         Loadingpage_UI = Ui_loadingpage(node, Homepage_UI)
+        Settings_UI = Ui_settings(node)
         
         tray_icon.show()
         HomepageListeners()
@@ -186,7 +185,8 @@ def initNode():
             node.connectAndSend(ip, port,'rjon', tosend, waitReply=False)
             Homepage_UI = Ui_homepage(node)    #Creating Homepage UI with node as arg
             Loadingpage_UI = Ui_loadingpage(node, Homepage_UI)
-            
+            Settings_UI = Ui_settings(node)
+
             tray_icon.show()
             HomepageListeners()
 
