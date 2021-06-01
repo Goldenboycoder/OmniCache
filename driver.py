@@ -106,7 +106,7 @@ def initPassPhrase(loginType):
 
     #Create an account
     if loginType == 1:
-
+        
         #passkey = QInputDialog.getText(Loginpage_UI, 'Pass Phrase', 'Enter your passphrase:')    #user password
         node.bNode.passPhrase = Loginpage_UI.keypass_input.text()
         if Loginpage_UI.keypass_input.text() != "":
