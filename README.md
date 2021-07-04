@@ -16,6 +16,6 @@
 
 More information can be found in [OmniCache_Report.docx](https://github.com/Goldenboycoder/SeniorProject/blob/main/Report/OmniCache_Report.pdf)
 
-### Collaborators
+### Contributors
 * Nizar1999
 * atabball
